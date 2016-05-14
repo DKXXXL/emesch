@@ -24,10 +24,6 @@ eval (SNum x)  env  =  (INum x, env)
 eval (SBool x) env =  (IBool x, env)
 eval (SQuote x) env  = (IQuote x, env)
 eval (SAtom x) env = (lookupFrames x, env)
-eval (SList (func:args))  = \env ->
-  let (args', newenv) = evalList' (map eval args) env
-  in let (IProcedure func') = (eval func newenv)
-     in func' args
 
 --define
 eval (SList ((SAtom "define"):(SAtom x):body:[])) env = (IQuote "()",addtoFrames env x (eval body)) 
@@ -55,3 +51,7 @@ eval (SList ((SAtom "lambda"):(args):body)) env =
         listzip [] [] = []
         
 
+eval (SList (func:args))  = \env ->
+  let (args', newenv) = evalList' (map eval args) env
+  in let (IProcedure func') = (eval func newenv)
+     in func' args

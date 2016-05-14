@@ -50,6 +50,7 @@ data SStruc =
   | SBool Bool
   | SNum Int
     deriving Show
+
 data InOp =
   Define SAtom SAtom
   | Lambda SList SList
