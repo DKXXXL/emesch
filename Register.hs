@@ -27,7 +27,8 @@ data ICop =
   | LookVar Register Cdata
   | SetVar Cdata Register
   | DefVar Cdata Register
-
+  | GetVec Cdata Register
+  | SetVec Cdata Register
     
 data Register =
   Argl -- Pointer

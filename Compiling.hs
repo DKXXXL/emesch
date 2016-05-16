@@ -1,12 +1,17 @@
 import Register
 import Internal
+import CPattern
 
 import Data.List (nub, concat)
 
 
-allcompile :: [SStruc] -> String
-allcompile = linkagetoC . \x ->(CExItem "main",CLabel x) . compileList
-
+allcompile :: (ICi -> ICi) -> [SStruc] -> String
+allcompile opt =
+  addheader "runtime.h" .
+  addheader "emeschlib.h" .
+  linkagetoC .
+  (\x ->(CExItem "main",CLabel . opt $ x)) .
+  compileList 
 
 nameGenerator :: [SStruc] -> String
 nameGenerator = concat . map nameGenerator'
@@ -82,14 +87,20 @@ compile (SList ((SAtom "car"):[])) = ICi [Assign2 Val (CExItem "CAR"),
 compile (SList ((SAtom "cdr"):[])) = ICi [Assign2 Val (CExItem "CDR"),
                                           Call Val] [] [Val]
 
-
-
 compile (SList (func:[])) =
   ICi [(compile func),
        (Call Val)] [] [Val]
 
 
+type Table = [(String,Int)] 
+lexaddr :: ICi -> ICi
+lexaddr' :: (ICop,Table,Int) -> (ICop,Table,Int)
+lexaddr' (DefVar cd r, t, i) = (SetVec (i) r, (cd,i):t , i+1)
+lexaddr' (SetVar cd r, t, i) = (SetVec (lookaddr' t cd) r, t , i)
+lexaddr' (LookupVar r cd, t, i) = (GetVec (lookaddr' t cd) r, t, i) 
 
+
+          
 instance (Show Cdata) where
   show (CString a) = "\"" ++ a ++ "\""
   show (CAtom a) = addcall "ATOM" [show (CString a)]
@@ -101,33 +112,6 @@ instance (Show Cdata) where
 
 
 
-    
-addcall :: String -> [String] -> String
-addcall func (arg:args) = func ++ "(" ++ arg ++ (sepbyp args) ++ ")"
-  where sepbyp [] = ""
-        sepbyp args = concat . map (',':) $ args
-
-
-assignmentsentence :: String -> String -> String
-assignmentsentence to from = to ++ "=" ++ from ++ ";"
-
-sentence:: String -> String
-sentence = (++ ";")
-
-cube :: String -> String
-cube x = ('{' : x) ++ "}" 
-
-quotesentence ::String -> String
-quotesentence = '&':
-ifsentence :: String -> String -> String -> String
-ifsentence pred branch1 branch2 =
-  "if" ++ (addcall "" [pred]) ++ (branch1) ++ "else" ++ (branch2)
-
-declfunc :: String -> String -> String
-declfunc funcname funcbody = "int " ++ (addcall funcname []) ++ (cube funcbody) 
-
-declvar :: String -> String -> String
-declvar name val = "ptlong " ++ name ++ "=" ++ val ++ ";"
 
 icitoC :: ICi -> String -> String
 icitoC (ICi ops linkages regs) funcname =
