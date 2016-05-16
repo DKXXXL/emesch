@@ -8,22 +8,13 @@ data Cdata =
   | CString String
   | CQuote String
   | CAtom String
-  | CLabel [ICop]
-  | CExItem String Cdata
+  | CLabel ICi
+  | CExItem String
 
 
-addcall :: String -> [String] -> String
-addcall func (arg:args) = func ++ "(" ++ arg ++ (sepbyp args) ++ ")"
-  where sepbyp args = concat . map (',':) $ args
-
-
-instance (Show Cdata) where
-  show (CString a) = "\"" ++ a ++ "\""
-  show (CAtom a) = addcall "ATOM" [show (CString a)]
-  show (CQuote a) = addcall "QUOTE" [show (CString a)]
-  show (CInt a) = show a
-  show (CBool a) = show a
-  show (CExItem a _) = show a
+data ICi = ICi {operation :: [ICop], linkages :: [(Cdata,Cdata)] ,using :: [Register]}
+ICi' :: [ICop] -> [Register] -> ICi
+ICi' = \x y -> ICi x [] y
 
 data ICop =
   Assign1 Register Register
