@@ -30,3 +30,9 @@ declfunc funcname funcbody = "int " ++ (addcall funcname []) ++ (cube funcbody)
 
 declvar :: String -> String -> String
 declvar name val = "ptlong " ++ name ++ "=" ++ val ++ ";"
+
+declarray :: String -> Int -> String
+declarray name i = "ptlong " ++ name ++ "[" ++ (show i) ++ "];"
+
+offsetof :: String -> Int -> String
+offsetof array i = array ++ ("[" ++ show i ++ "]")

@@ -10,10 +10,10 @@ allcompile opt =
   addheader "runtime.h" .
   addheader "emeschlib.h" .
   linkagetoC .
-  (\x ->(CExItem "main",CLabel . opt. lexAddr $ x)) .
+  (\x ->(CExItem "main",CLabel . opt . lexAddr $ x)) .
   envSet .
-  compileList 
-
+  compileList .
+  (map macroTransformer)
 
 
 nameGenerator :: [SStruc] -> String
@@ -42,22 +42,22 @@ compile (SNum x) =ICi [Assign2 Val (CInt x)] [] [Val]
 compile (SBool x) =ICi [Assign2 Val (CBool x)] [] [Val]
 
 compile (SAtom x) =ICi [LookVar Val (CAtom x)] [] [Val]
-
+{-
 compile (SQuote (SAtom x)) = compile (SList [SAtom "quote", SString x])
 
 compile (SQuote (SString x)) = compile (SList [SAtom "quote", SString x])
-compile (SQuote (SList x)) = compile (SList ((SAtom "quote"):x))
+compile (SQuote (SList x)) = compile (SList [SAtom "quote",(SList x)])
 
 compile (SQuote (SList (x:[]))) =
   compile (SList [SAtom "cons",
                   SQuote x,
                   SQuote $ SString "()"])
 
-compile (SList ((SAtom "quote"):x:y:z)) =
+compile (SList ((SAtom "quote"):(SList x:y:z):[])) =
   compile (SList [SAtom "cons",
                   SQuote x,
-                  SQuote (SList (y:z))])
-  
+                  SQuote (SList (y:z))])  
+-}
 
 compile (SList ((SAtom "define"):(SList ((SAtom funcName):args)):body:[])) =
   compile (SList ((SAtom "define"):(SAtom funcName):(SList (SAtom "lambda"):(SList args):body)))
@@ -127,9 +127,9 @@ type Table = [[(String,Int)]]
 lexAddr :: ICi -> ICi
 lexAddr = (\(x,_,_) -> x) . (\x -> lexaddr (x, [[]], 0)) 
 where lexaddr' :: (ICop,Table,Int) -> (ICop,Table,Int)
-      lexaddr' (DefVar cd r, t, i) = (SetVec (CInt i) r, addaddr' t (cd,i), i+1)
-      lexaddr' (SetVar cd r, t, i) = (SetVec (CInt $ lookaddr' t cd) r, t , i)
-      lexaddr' (LookupVar r cd, t, i) = (GetVec (CInt $ lookaddr' t cd) r, t, i)
+      lexaddr' (DefVar cd r, t, i) = (SetLVec (CInt i) r, addaddr' t (cd,i), i+1)
+      lexaddr' (SetVar cd r, t, i) = (SetLVec (CInt $ lookaddr' t cd) r, t , i)
+      lexaddr' (LookupVar r cd, t, i) = (GetLVec (CInt $ lookaddr' t cd) r, t, i)
       lexaddr' (x, t, i) = (x, t, i)
       lexaddr (ICi ops links regs, t, i) =
         foldl lexaddr'acc  (proclinks links (ICi [] [] [], addframe' t ,i)) ops
@@ -194,25 +194,27 @@ optoC (TestGo pred branch1 branch2) =
 optoC (LookVar a b) =
   addcall "LOOKVAR" [quotesentence . show $ a,
                      show b]
-
 optoC (SetVar a b) =
   addcall "SETVAR" [show a,
                     quotesentence . show $ b]
-
-
 optoC (DefVar a b) =
   addcall "SETVAR" [show a,
                     quotesentence . show $ b]
 -}
 
 
-optoC (GetVec cd r) = addcall "GETVEC" [show cd,
-                                        quotesentence . show $ r]
-optoC (SetVec cd r) = addcall "SETVEC" [show cd,
-                                        quotesentence . show $ r]
+optoC (GetLVec (CInt cd) r) =
+  assignmentsentence
+  (show r)
+  (addcall "*" [addcall "(ptlong*)" [offsetof "LexVec" cd]])
+optoC (SetLVec (CInt cd) r) =
+  assignmentsentence
+  (addcall "*" [addcall "(ptlong*)" [offsetof "LexVec" cd]])
+  (show r)
 
 linkagetoC (CExItem a,CLabel b) = icitoC b a
 linkagetoC (CExItem a,b) = declvar a $ show b
 
 
-regtoC (Register x) = declvar x . show . CInt $ 0 
+regtoC (LexVec i) = declarray "LexVec" i
+regtoC (x) = declvar x . show . CInt $ 0 
