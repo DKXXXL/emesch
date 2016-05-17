@@ -6,11 +6,12 @@ data Cdata =
   CInt Int
   | CBool Bool
   | CString String
-  | CQuote String
+--  | CQuote String
+--  | CList [Cdata]
   | CAtom String
   | CLabel ICi
   | CExItem String
-
+    
 
 data ICi = ICi {operation :: [ICop], linkages :: [(Cdata,Cdata)] ,using :: [Register]}
 ICi' :: [ICop] -> [Register] -> ICi

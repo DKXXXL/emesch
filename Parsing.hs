@@ -32,7 +32,7 @@ parserString =do char '\"'
 parserQuote :: Parser SStruc
 parserQuote =do char '\''
                 x <- (parserAtom' <|> parserList <|> parserString)
-                return $ SQuote x
+                return $ SQuote x 
 
 parserNumber :: Parser SStruc
 parserNumber = many1 digit >>= (return . SNum . read)
