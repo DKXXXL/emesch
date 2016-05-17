@@ -125,7 +125,7 @@ envSet (ICi ops x y) = ICi (envload' ++ ops) x y
 type Table = [[(String,Int)]] 
 
 lexAddr :: ICi -> ICi
-lexAddr = (\(x,_,_) -> x) . (\x -> lexaddr (x, [[]], 0)) 
+lexAddr = (\((ICi a b c),_,i) -> ICi a b ((LexVec i):c)) . (\x -> lexaddr (x, [[]], 0)) 
 where lexaddr' :: (ICop,Table,Int) -> (ICop,Table,Int)
       lexaddr' (DefVar cd r, t, i) = (SetLVec (CInt i) r, addaddr' t (cd,i), i+1)
       lexaddr' (SetVar cd r, t, i) = (SetLVec (CInt $ lookaddr' t cd) r, t , i)
