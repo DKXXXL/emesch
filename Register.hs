@@ -11,7 +11,7 @@ data Cdata =
   | CAtom String
   | CLabel ICi
   | CExItem String
-    
+  
 
 data ICi = ICi {operation :: [ICop], linkages :: [(Cdata,Cdata)] ,using :: [Register]}
 ICi' :: [ICop] -> [Register] -> ICi
@@ -22,7 +22,8 @@ data ICop =
   | Assign2 Register Cdata 
   | Push Register Register
   | Pop Register Register
-  | Run Cdata 
+  | Label Cdata
+  | Goto Cdata 
   | Call Register
   | TestGo Register Cdata Cdata
   | LookVar Register Cdata
@@ -30,7 +31,8 @@ data ICop =
   | DefVar Cdata Register
   | GetLVec Cdata Register
   | SetLVec Cdata Register
-    
+  | Save Register
+  | Load Register
 data Register =
   Argl -- Pointer
   | Val -- Var

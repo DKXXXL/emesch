@@ -90,10 +90,26 @@ compile (SList ((SAtom "set!"):(SAtom var):val:[])) =
   ICi [(compile val),
        (SetVar (CAtom var) Val)] [] [Val]
 
+compile (SList ((SAtom "call/cc"):x:[]))@x' =
+  let name = nameGenerator x'
+      name' = "GOTO" ++ name 
+  in ICi [Save Argl,
+          Assign2 Val (CExItem (name')),
+          Push Argl Val,
+          (compile x),
+          Call Val,
+          Label (CExItem name)]
+     [(name',CLabel $ ICi [Pop Argl Val,
+                           Load Argl,
+                           Goto (CExitem name)] [] [Argl,Val])]
+     [Argl,Val]
+
 compile (SList (func:arg:args)) =
   ICi [(compile arg),
        (Push Argl Val),
        (compile (SList (func:args)))] [] [Argl]
+
+
 
 {-
 compile (SList ((SAtom "cons"):[])) = ICi [Assign2 Val (CExItem "CONS"),
@@ -167,14 +183,23 @@ icitoC (ICi ops linkages regs) funcname =
   (concat . map regtoC $ regs)
   ++ (concat . map linkagetoC $ linkages)
   ++ (declfun funcname $ (concat . map optoC $ ops))
-  
+
+
+
 
 optoC :: ICop -> String
+
+
+optoC (Label a) = (show a) ++ ":"
+optoC (Goto a) = sentence $ "goto " ++ (show a) 
+optoC (Save r) = sentence $ addcall "SAVE" [show r]
+optoC (Load r) = sentence $ addcall "LOAD" [show r]
+
 --optoC (Run (CLabel x)) = concat . map optoC $ x
 optoC (Assign1 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
 --optoC (Assign2 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
-optoC (Assign2 a cd) = addcall "ASSIGN2" [quotesentence . show $ a,
-                                          show cd]
+optoC (Assign2 a cd) =sentence $ addcall "ASSIGN2" [quotesentence . show $ a,
+                                                    show cd]
 optoC (Push a b) =
   assignmentsentence
   (addcall "*" [addcall "(ptlong*)" [(show a) ++ "++"]])
