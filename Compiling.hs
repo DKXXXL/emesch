@@ -33,15 +33,16 @@ compileList =integrateICi . map compile
           ICi
           (concat . map . operation $ icis)
           (concat . map . linkages $ icis)
-          (nub . concat . map. using $ icis) 
-         
+          (nub . concat . map . using $ icis) 
+          (nub . concat . map . var $ icis) 
+        
         
 compile :: SStruc -> ICi
-compile (SString x) =ICi [Assign2 Val (CString x)] [] [Val]
-compile (SNum x) =ICi [Assign2 Val (CInt x)] [] [Val]
-compile (SBool x) =ICi [Assign2 Val (CBool x)] [] [Val]
+compile (SString x) =ICi [Assign2 Val (CString x)] [] [Val] []
+compile (SNum x) =ICi [Assign2 Val (CInt x)] [] [Val] []
+compile (SBool x) =ICi [Assign2 Val (CBool x)] [] [Val] []
 
-compile (SAtom x) =ICi [LookVar Val (CAtom x)] [] [Val]
+compile (SAtom x) =ICi [LookVar Val (CAtom x)] [] [Val] [CAtom x]
 {-
 compile (SQuote (SAtom x)) = compile (SList [SAtom "quote", SString x])
 
@@ -64,22 +65,31 @@ compile (SList ((SAtom "define"):(SList ((SAtom funcName):args)):body:[])) =
 
 compile (SList ((SAtom "define"):(SAtom x):body:[])) =
   (ICi  [(compile body), 
-         DefVar (CAtom x) Val] [] [Val])
+         DefVar (CAtom x) Val] [] [Val] [CAtom x])
 
 compile (SList ((SAtom "lambda"):(SList arg):body))@all =
   let name = nameGenerator all
-      lambda' = ICi (compileLambda' ((SList (reverse arg)):body)) [] [Val,Argl]
+      lambda' = compileLambda ((SList (reverse arg)):body) [] [Val,Argl]
   in ICi
      [(Assign2 Val (CExItem name))]
      [(CExItem name,CLabel lambda')]
      [Val]
-  where compileLambda' :: [SStruc] -> [ICop] 
-        compileLambda' (SList ((SAtom arg): args):body) =
+  where compileLambda :: [SStruc] -> [(Cdata,Cdata)] -> [Register] -> ICi
+        compileLambda (args:body) links regs =
+          let body' = compileList body
+          in
+            ICi
+            ((compileLambdaEntrance args) ++ (operation body'))
+            ((linkages body') ++ links)
+            ((using body') ++ regs)
+            (var body')
+        compileLambdaEntrance :: [SStruc] -> [ICop]
+        compileLambdaEntrance (SList ((SAtom arg): args)) =
           [(Pop Argl Val),
            (DefVar (CAtom arg) Val)] ++
-          (compileLambda' ((SList args):body))  
-        compileLambda' ((SList []):body) =
-          [compileList body]
+          (compileLambdaEntrance ((SList args):body))
+        compileLambdaEntrance (SList []) = []
+      
 
 compile (SList ((SAtom "if"):pred:branch1:branch2)) =
   ICi [(compile pred),
@@ -88,7 +98,7 @@ compile (SList ((SAtom "if"):pred:branch1:branch2)) =
 
 compile (SList ((SAtom "set!"):(SAtom var):val:[])) =
   ICi [(compile val),
-       (SetVar (CAtom var) Val)] [] [Val]
+       (SetVar (CAtom var) Val)] [] [Val] [CAtom var]
 
 compile (SList ((SAtom "call/cc"):x:[]))@x' =
   let name = nameGenerator x'
@@ -103,11 +113,12 @@ compile (SList ((SAtom "call/cc"):x:[]))@x' =
                            Load Argl,
                            Goto (CExitem name)] [] [Argl,Val])]
      [Argl,Val]
+     []
 
 compile (SList (func:arg:args)) =
   ICi [(compile arg),
        (Push Argl Val),
-       (compile (SList (func:args)))] [] [Argl]
+       (compile (SList (func:args)))] [] [Argl] []
 
 
 
@@ -126,7 +137,7 @@ compile (SList (func:[])) =
        (Call Val)] [] [Val]
 
 envSet :: ICi -> ICi
-envSet (ICi ops x y) = ICi (envload' ++ ops) x y
+envSet (ICi ops x y z) = ICi (envload' ++ ops) x y z
   where envload' :: [ICop]
         envload' =
           concat . map envloadgen' $
@@ -139,7 +150,7 @@ envSet (ICi ops x y) = ICi (envload' ++ ops) x y
               envfuncalias "/" = "DEVIDE"
               envfuncalias = map . toUpper
 type Table = [[(String,Int)]] 
-
+{-
 lexAddr :: ICi -> ICi
 lexAddr = (\((ICi a b c),_,i) -> ICi a b ((LexVec i):c)) . (\x -> lexaddr (x, [[]], 0)) 
 where lexaddr' :: (ICop,Table,Int) -> (ICop,Table,Int)
@@ -165,6 +176,8 @@ where lexaddr' :: (ICop,Table,Int) -> (ICop,Table,Int)
                       maybeacc _ (Just x) = x
                       --if maybeacc miss something, then error 
                      
+-}
+
 instance (Show Cdata) where
   show (CString a) = "\"" ++ a ++ "\""
 --  show (CQuote a) = addcall "QUOTE" [show $ CString a]
@@ -179,10 +192,10 @@ instance (Show Cdata) where
 
 
 icitoC :: ICi -> String -> String
-icitoC (ICi ops linkages regs) funcname =
+icitoC (ICi ops linkages regs vars) funcname =
   (concat . map regtoC $ regs)
   ++ (concat . map linkagetoC $ linkages)
-  ++ (declfun funcname $ (concat . map optoC $ ops))
+  ++ (declfun funcname (concat . map optoC $ ops) $ map show vars)
 
 
 

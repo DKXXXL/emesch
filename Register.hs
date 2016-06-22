@@ -13,7 +13,12 @@ data Cdata =
   | CExItem String
   
 
-data ICi = ICi {operation :: [ICop], linkages :: [(Cdata,Cdata)] ,using :: [Register]}
+data ICi =
+  ICi {operation :: [ICop], linkages :: [(Cdata,Cdata)] ,using :: [Register] ,var :: [Cdata]}
+-- operation is the operating list
+-- linkages are the external variable
+-- using means the registers in use
+-- var means the variable relative to
 ICi' :: [ICop] -> [Register] -> ICi
 ICi' = \x y -> ICi x [] y
 
