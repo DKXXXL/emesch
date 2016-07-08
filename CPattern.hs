@@ -55,13 +55,13 @@ declcfunc funcname funcbody = "int " ++ (addcall funcname []) ++ (cube funcbody)
 
 
 declvar :: String -> String -> String
-declvar name val = ptlongtype $ name ++ "=" ++ val ++ ";"
+declvar name val =sentence $ ptlongtype $ name ++ "=" ++ val
 
 declarray :: String -> Int -> String
-declarray name i = ptlongtype $ name ++ "[" ++ (show i) ++ "];"
+declarray name i =sentence $ ptlongtype $ name ++ "[" ++ (show i) ++ "]"
 
 declstruc :: String -> String -> String
-declstruc name content = "Struct " ++ (nameStruct name) ++ "{" ++ content ++ "};"
+declstruc name content = sentence $ "Struct " ++ (nameStruct name) ++ "{" ++ content ++ "}" ++ name
   where nameStruct = "__STRUCT__" ++
 
         

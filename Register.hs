@@ -9,18 +9,21 @@ data Cdata =
 --  | CQuote String
 --  | CList [Cdata]
   | CAtom String
-  | CLabel ICi
+  | CLambda ICi  -- Ops, Register and variable in use
   | CExItem String
   
 
 data ICi =
-  ICi {operation :: [ICop], linkages :: [(Cdata,Cdata)] ,using :: [Register] ,var :: [Cdata]}
+  ICi {ops :: [ICop], using :: [Register], var :: [Cdata]}
+
+--data ICi =
+--  ICi {operation :: [ICop], linkages :: [(Cdata,Cdata)] ,using :: [Register] ,var :: [Cdata]}
 -- operation is the operating list
 -- linkages are the external variable
 -- using means the registers in use
 -- var means the variable relative to
-ICi' :: [ICop] -> [Register] -> ICi
-ICi' = \x y -> ICi x [] y
+--ICi' :: [ICop] -> [Register] -> ICi
+--ICi' = \x y -> ICi x [] y
 
 data ICop =
   Assign1 Register Register
@@ -39,7 +42,8 @@ data ICop =
   | Save Register
   | Load Register
 data Register =
-  Argl -- Pointer
+  Exp
+  | Argl -- Pointer
   | Val -- Var
   | LexVec Int
   deriving Show

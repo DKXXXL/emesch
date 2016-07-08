@@ -5,6 +5,11 @@ import CPattern
 import Data.List (nub, concat, find)
 import Data.Char (toUpper)
 
+
+-------------------------------------------------------------------------------------
+-- 1. Cdata have a pointer long data ahead, because it has to store the class of data
+-------------------------------------------------------------------------------------
+
 allcompile :: (ICi -> ICi) -> [SStruc] -> String
 allcompile opt =
   addheader "runtime.h" .
@@ -36,7 +41,14 @@ compileList =integrateICi . map compile
           (nub . concat . map . using $ icis) 
           (nub . concat . map . var $ icis) 
         
-        
+
+cobC :: ICi -> ICi -> ICi
+cobC a b =
+  ICi ((++) (operation a) (operation b))
+  ((++) (linkages a) (linkages b))
+  (nub ((++) (using a) (using b)))
+  (nub ((++) (var a) (var b)))
+
 compile :: SStruc -> ICi
 compile (SString x) =ICi [Assign2 Val (CString x)] [] [Val] []
 compile (SNum x) =ICi [Assign2 Val (CInt x)] [] [Val] []
@@ -64,8 +76,9 @@ compile (SList ((SAtom "define"):(SList ((SAtom funcName):args)):body:[])) =
   compile (SList ((SAtom "define"):(SAtom funcName):(SList (SAtom "lambda"):(SList args):body)))
 
 compile (SList ((SAtom "define"):(SAtom x):body:[])) =
-  (ICi  [(compile body), 
-         DefVar (CAtom x) Val] [] [Val] [CAtom x])
+  (compile body)
+  `cobC`
+  (ICi [DefVar (CAtom x) Val] [] [Val] [CAtom x])
 
 compile (SList ((SAtom "lambda"):(SList arg):body))@all =
   let name = nameGenerator all
@@ -92,13 +105,15 @@ compile (SList ((SAtom "lambda"):(SList arg):body))@all =
       
 
 compile (SList ((SAtom "if"):pred:branch1:branch2)) =
-  ICi [(compile pred),
-       (TestGo Val (CLabel (compileList branch1))
-        (CLabel (compileList branch2)))] [] [Val]
+  (compile pred)
+  `cobC`
+  $ ICi [(TestGo Val (CLabel (compileList branch1))
+          (CLabel (compileList branch2)))] [] [Val] []
 
 compile (SList ((SAtom "set!"):(SAtom var):val:[])) =
-  ICi [(compile val),
-       (SetVar (CAtom var) Val)] [] [Val] [CAtom var]
+  (compile val)
+  `cobC`
+  $ ICi [(SetVar (CAtom var) Val)] [] [Val] [CAtom var]
 
 compile (SList ((SAtom "call/cc"):x:[]))@x' =
   let name = nameGenerator x'
@@ -115,10 +130,35 @@ compile (SList ((SAtom "call/cc"):x:[]))@x' =
      [Argl,Val]
      []
 
-compile (SList (func:arg:args)) =
-  ICi [(compile arg),
-       (Push Argl Val),
-       (compile (SList (func:args)))] [] [Argl] []
+compile (SList (func:args)) =
+  (compile func)
+  `cobC`
+  (ICi
+   [(Push Exp Val)]
+   []
+   [Exp,Argl]
+   [])
+  `cobC`
+  (compileArgs args)
+  `cobC`
+  (ICi
+   [(Pop Exp Val),
+    (Call Val)]
+   []
+   [Exp,Val]
+   [])
+  where compileArgs :: [SStruc] -> ICi
+        compileArgs (arg:l) =
+          (compile arg)
+          `cobC`
+          (ICi
+           [Push Argl Val]
+           []
+           [Argl]
+           [])
+          `cobC` $ compileArgs l
+        compileArgs [] = ICi [] [] [] []
+  
 
 
 
@@ -131,10 +171,11 @@ compile (SList ((SAtom "car"):[])) = ICi [Assign2 Val (CExItem "CAR"),
 
 compile (SList ((SAtom "cdr"):[])) = ICi [Assign2 Val (CExItem "CDR"),
                                           Call Val] [] [Val]
--}
+
 compile (SList (func:[])) =
   ICi [(compile func),
        (Call Val)] [] [Val]
+-}
 
 envSet :: ICi -> ICi
 envSet (ICi ops x y z) = ICi (envload' ++ ops) x y z
@@ -156,7 +197,7 @@ lexAddr = (\((ICi a b c),_,i) -> ICi a b ((LexVec i):c)) . (\x -> lexaddr (x, [[
 where lexaddr' :: (ICop,Table,Int) -> (ICop,Table,Int)
       lexaddr' (DefVar cd r, t, i) = (SetLVec (CInt i) r, addaddr' t (cd,i), i+1)
       lexaddr' (SetVar cd r, t, i) = (SetLVec (CInt $ lookaddr' t cd) r, t , i)
-      lexaddr' (LookupVar r cd, t, i) = (GetLVec (CInt $ lookaddr' t cd) r, t, i)
+      lexaddr' (LookVar r cd, t, i) = (GetLVec (CInt $ lookaddr' t cd) r, t, i)
       lexaddr' (x, t, i) = (x, t, i)
       lexaddr (ICi ops links regs, t, i) =
         foldl lexaddr'acc  (proclinks links (ICi [] [] [], addframe' t ,i)) ops
@@ -184,7 +225,7 @@ instance (Show Cdata) where
   show (CInt a) = show a
   show (CBool a) = show a
   show (CExItem a) = show a
-  show (CAtom a) = addcall "ATOM" [show (CString a)]
+--  show (CAtom a) = addcall "ATOM" [show (CString a)]
 
   -- show (CLabel x) =  cube . concat . map optoC $ x
 
@@ -211,12 +252,16 @@ optoC (Load r) = sentence $ addcall "LOAD" [show r]
 --optoC (Run (CLabel x)) = concat . map optoC $ x
 optoC (Assign1 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
 --optoC (Assign2 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
-optoC (Assign2 a cd) =sentence $ addcall "ASSIGN2" [quotesentence . show $ a,
+optoC (Assign2 a cd) =sentence $ addcall "ASSIGN2" [show $ a,
+                                                    datatype cd,
                                                     show cd]
+  where datatype (CInt _) = "1"
+        datatype (CString _) = "2"
+        datatype (CBool _) = "3"
 optoC (Push a b) =
   assignmentsentence
   (addcall "*" [addcall "(ptlong*)" [(show a) ++ "++"]])
-  (add call "(ptlong)" [(show b)])
+  (addcall "(ptlong)" [(show b)])
 
 optoC (Pop a b) =
   assignmentsentence
@@ -224,7 +269,7 @@ optoC (Pop a b) =
   (addcall "(ptlong)" [addcall "(*)" [addcall "--" [show b]]])
 
 optoC (Call a) =
-  sentence $ addcall (addcall "" [addcall "((void*)())" [addcall "*(ptlong*)" [show a]]]) []
+  sentence $ addcall (addcall "" [addcall "((void*)())"  [show a]]) []
 
 optoC (TestGo pred branch1 branch2) =
   ifsentence (show pred) (show branch1) (show branch2)
