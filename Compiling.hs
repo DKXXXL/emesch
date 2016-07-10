@@ -10,15 +10,81 @@ import Data.Char (toUpper)
 -- 1. Cdata have a pointer long data ahead, because it has to store the class of data
 -------------------------------------------------------------------------------------
 
-allcompile :: (ICi -> ICi) -> [SStruc] -> String
-allcompile opt =
-  addheader "runtime.h" .
-  addheader "emeschlib.h" .
-  linkagetoC .
-  (\x ->(CExItem "main",CLabel . opt . lexAddr $ x)) .
-  envSet .
-  compileList .
-  (map macroTransformer)
+----------- To IR
+
+acobC :: [ICi] -> ICi
+acobC icis = ICi
+  (concat . map . ops $ icis)
+  (concat . map . links $ icis)
+  (nub . concat . map . using $ icis) 
+  (nub . concat . map . var $ icis) 
+
+
+compile :: SStruc -> ICi
+compile (SString x) =ICi [Assign2 Val (CString x)] [] [Val] []
+compile (SNum x) =ICi [Assign2 Val (CInt x)] [] [Val] []
+compile (SBool x) =ICi [Assign2 Val (CBool x)] [] [Val] []
+
+compile (SAtom x) =ICi [LookVar Val (CAtom x)] [] [Val] [CAtom x]
+
+compile (SList ((SAtom "define"):(SList ((SAtom funcName):args)):body:[])) =
+  compile (SList ((SAtom "define"):(SAtom funcName):(SList (SAtom "lambda"):(SList args):body)))
+
+
+compile (SList ((SAtom "define"):(SAtom x):body:[])) =
+  acobC $
+  (compile body):
+  (ICi [DefVar (CAtom x) Val] [] [Val] [CAtom x]):[]
+
+
+compile (SList ((SAtom "lambda"):(SList arg):body))@all =
+  let lambdai' = acobC [compileLambdaEntrance arg,
+                        compileBody body]
+      lname = nameGenerator all
+  in  ICi [Assign2 Val (CExItem lname)] [(CExItem lname,CLambda lambdai')] [Val] [] 
+  where compileBody = acobC . map compile
+        compileLambdaEntrance :: [SStruc] -> ICop
+        compileLambdaEntrance = concat . map compileLambdaEntranceArg . reverse
+          where compileLambdaEntranceArg (SAtom arg) =
+                  [(Pop Argl Val),
+                   (DefVar (CAtom arg) Val)]
+
+
+compile (SList ((SAtom "if"):pred:branch1:branch2)) =
+  let b1 = nameGenerator branch1
+      b2 = nameGenerator branch2
+  in acobC [(compile pred),
+            ICi [(TestGo
+                  Val
+                  [Assign2 Val (CExItem b1),
+                   Call Val]
+                  [Assign2 Val (CExItem b2),
+                   Call Val])]
+            [(CExItem b1,CLambda $ compileList branch1)
+             (CExItem b2,Clambda $ compileList branch2)] [Val] []]
+  where compileList = acobC . map compile
+
+compile (SList ((SAtom "set!"):(SAtom var):val:[])) =
+  acobC [(compile val),
+         ICi [(SetVar (CAtom var) Val)] [] [Val] [CAtom var]]
+
+
+compile (SList ((SAtom "call/cc"):x:[]))@x' =
+  undefined
+
+
+compile (SList (func:args)) =
+  acobC [(compile func),
+         (ICi [Push Exp Val] [] [Exp,Val] []),
+         (compileArgs args),
+         (ICi [Pop Exp Val,
+               Run Val] [] [Exp,Val] [])]
+  where compileArgs :: [SStruc] -> ICi
+        compileArgs =
+          acobC . concat $
+          map (\x -> [(compile x),
+                      (ICi [Push Argl Val] [Argl,Val] [])])
+
 
 
 nameGenerator :: [SStruc] -> String
@@ -31,151 +97,8 @@ where nameGenerator' :: SStruc -> String
       nameGenerator' (SBool x) = show x
       nameGenerator' (SNum x) = show x
 
-compileList :: [SStruc] -> ICi
-compileList =integrateICi . map compile
-  where integrateICi :: [ICi] -> ICi
-        integrateICi icis =
-          ICi
-          (concat . map . operation $ icis)
-          (concat . map . linkages $ icis)
-          (nub . concat . map . using $ icis) 
-          (nub . concat . map . var $ icis) 
-        
 
-cobC :: ICi -> ICi -> ICi
-cobC a b =
-  ICi ((++) (operation a) (operation b))
-  ((++) (linkages a) (linkages b))
-  (nub ((++) (using a) (using b)))
-  (nub ((++) (var a) (var b)))
-
-compile :: SStruc -> ICi
-compile (SString x) =ICi [Assign2 Val (CString x)] [] [Val] []
-compile (SNum x) =ICi [Assign2 Val (CInt x)] [] [Val] []
-compile (SBool x) =ICi [Assign2 Val (CBool x)] [] [Val] []
-
-compile (SAtom x) =ICi [LookVar Val (CAtom x)] [] [Val] [CAtom x]
-{-
-compile (SQuote (SAtom x)) = compile (SList [SAtom "quote", SString x])
-
-compile (SQuote (SString x)) = compile (SList [SAtom "quote", SString x])
-compile (SQuote (SList x)) = compile (SList [SAtom "quote",(SList x)])
-
-compile (SQuote (SList (x:[]))) =
-  compile (SList [SAtom "cons",
-                  SQuote x,
-                  SQuote $ SString "()"])
-
-compile (SList ((SAtom "quote"):(SList x:y:z):[])) =
-  compile (SList [SAtom "cons",
-                  SQuote x,
-                  SQuote (SList (y:z))])  
--}
-
-compile (SList ((SAtom "define"):(SList ((SAtom funcName):args)):body:[])) =
-  compile (SList ((SAtom "define"):(SAtom funcName):(SList (SAtom "lambda"):(SList args):body)))
-
-compile (SList ((SAtom "define"):(SAtom x):body:[])) =
-  (compile body)
-  `cobC`
-  (ICi [DefVar (CAtom x) Val] [] [Val] [CAtom x])
-
-compile (SList ((SAtom "lambda"):(SList arg):body))@all =
-  let name = nameGenerator all
-      lambda' = compileLambda ((SList (reverse arg)):body) [] [Val,Argl]
-  in ICi
-     [(Assign2 Val (CExItem name))]
-     [(CExItem name,CLabel lambda')]
-     [Val]
-  where compileLambda :: [SStruc] -> [(Cdata,Cdata)] -> [Register] -> ICi
-        compileLambda (args:body) links regs =
-          let body' = compileList body
-          in
-            ICi
-            ((compileLambdaEntrance args) ++ (operation body'))
-            ((linkages body') ++ links)
-            ((using body') ++ regs)
-            (var body')
-        compileLambdaEntrance :: [SStruc] -> [ICop]
-        compileLambdaEntrance (SList ((SAtom arg): args)) =
-          [(Pop Argl Val),
-           (DefVar (CAtom arg) Val)] ++
-          (compileLambdaEntrance ((SList args):body))
-        compileLambdaEntrance (SList []) = []
-      
-
-compile (SList ((SAtom "if"):pred:branch1:branch2)) =
-  (compile pred)
-  `cobC`
-  $ ICi [(TestGo Val (CLabel (compileList branch1))
-          (CLabel (compileList branch2)))] [] [Val] []
-
-compile (SList ((SAtom "set!"):(SAtom var):val:[])) =
-  (compile val)
-  `cobC`
-  $ ICi [(SetVar (CAtom var) Val)] [] [Val] [CAtom var]
-
-compile (SList ((SAtom "call/cc"):x:[]))@x' =
-  let name = nameGenerator x'
-      name' = "GOTO" ++ name 
-  in ICi [Save Argl,
-          Assign2 Val (CExItem (name')),
-          Push Argl Val,
-          (compile x),
-          Call Val,
-          Label (CExItem name)]
-     [(name',CLabel $ ICi [Pop Argl Val,
-                           Load Argl,
-                           Goto (CExitem name)] [] [Argl,Val])]
-     [Argl,Val]
-     []
-
-compile (SList (func:args)) =
-  (compile func)
-  `cobC`
-  (ICi
-   [(Push Exp Val)]
-   []
-   [Exp,Argl]
-   [])
-  `cobC`
-  (compileArgs args)
-  `cobC`
-  (ICi
-   [(Pop Exp Val),
-    (Call Val)]
-   []
-   [Exp,Val]
-   [])
-  where compileArgs :: [SStruc] -> ICi
-        compileArgs (arg:l) =
-          (compile arg)
-          `cobC`
-          (ICi
-           [Push Argl Val]
-           []
-           [Argl]
-           [])
-          `cobC` $ compileArgs l
-        compileArgs [] = ICi [] [] [] []
-  
-
-
-
-{-
-compile (SList ((SAtom "cons"):[])) = ICi [Assign2 Val (CExItem "CONS"),
-                                            Call Val] [] [Val]
-
-compile (SList ((SAtom "car"):[])) = ICi [Assign2 Val (CExItem "CAR"),
-                                          Call Val] [] [Val]
-
-compile (SList ((SAtom "cdr"):[])) = ICi [Assign2 Val (CExItem "CDR"),
-                                          Call Val] [] [Val]
-
-compile (SList (func:[])) =
-  ICi [(compile func),
-       (Call Val)] [] [Val]
--}
+------- Environment 
 
 envSet :: ICi -> ICi
 envSet (ICi ops x y z) = ICi (envload' ++ ops) x y z
@@ -190,34 +113,23 @@ envSet (ICi ops x y z) = ICi (envload' ++ ops) x y z
               envfuncalias "*" = "MUTIPLY"
               envfuncalias "/" = "DEVIDE"
               envfuncalias = map . toUpper
-type Table = [[(String,Int)]] 
-{-
-lexAddr :: ICi -> ICi
-lexAddr = (\((ICi a b c),_,i) -> ICi a b ((LexVec i):c)) . (\x -> lexaddr (x, [[]], 0)) 
-where lexaddr' :: (ICop,Table,Int) -> (ICop,Table,Int)
-      lexaddr' (DefVar cd r, t, i) = (SetLVec (CInt i) r, addaddr' t (cd,i), i+1)
-      lexaddr' (SetVar cd r, t, i) = (SetLVec (CInt $ lookaddr' t cd) r, t , i)
-      lexaddr' (LookVar r cd, t, i) = (GetLVec (CInt $ lookaddr' t cd) r, t, i)
-      lexaddr' (x, t, i) = (x, t, i)
-      lexaddr (ICi ops links regs, t, i) =
-        foldl lexaddr'acc  (proclinks links (ICi [] [] [], addframe' t ,i)) ops
-        where lexaddr'acc (_, t, i) op = lexaddr' (op, t, i)
-              lexaddracc (_, t, i) ici = lexaddr (ici, addframe' . backframe' $ t , i)
-              proclinks links basic =
-                foldl lexaddracc basic.
-                map (\x -> case x of (_,CLabel y) -> y
-                                     (_,_) -> ICI [] [] []) $ links
-              addframe' :: Table -> Table
-              addframe' = ([]:)
-              backframe' :: Table -> Table
-              backframe' (_:x) = x
-              addaddr' (y:l) x = (x:y):l
-              lookaddr' t cd =foldl maybeacc Nothing . map (find (\(x,_) -> x == cd)) $ t
-                where maybeacc (Just x) _ = x
-                      maybeacc _ (Just x) = x
-                      --if maybeacc miss something, then error 
-                     
--}
+
+
+---------- TO C
+
+
+allcompile :: (ICi -> ICi) -> [SStruc] -> String
+allcompile opt =
+  addheader "runtime.h" .
+  addheader "emeschlib.h" .
+  linkagetoC .
+  (\x ->(CExItem "main",CLambda x)) .
+  opt.
+  envSet .
+  compileList .
+  (map macroTransformer)
+  where compileList = acobC . map compile
+
 
 instance (Show Cdata) where
   show (CString a) = "\"" ++ a ++ "\""

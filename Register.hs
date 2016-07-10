@@ -11,13 +11,14 @@ data Cdata =
   | CAtom String
   | CLambda ICi  -- Ops, Register and variable in use
   | CExItem String
+    
   
 
-data ICi =
-  ICi {ops :: [ICop], using :: [Register], var :: [Cdata]}
-
 --data ICi =
---  ICi {operation :: [ICop], linkages :: [(Cdata,Cdata)] ,using :: [Register] ,var :: [Cdata]}
+--  ICi {ops :: [ICop], using :: [Register], var :: [Cdata]}
+
+data ICi =
+  ICi {ops :: [ICop], links :: [(Cdata,Cdata)] ,using :: [Register] ,var :: [Cdata]}
 -- operation is the operating list
 -- linkages are the external variable
 -- using means the registers in use
@@ -33,7 +34,7 @@ data ICop =
   | Label Cdata
   | Goto Cdata 
   | Call Register
-  | TestGo Register Cdata Cdata
+  | TestGo Register [ICop] [ICop]
   | LookVar Register Cdata
   | SetVar Cdata Register
   | DefVar Cdata Register
