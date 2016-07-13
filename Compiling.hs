@@ -41,14 +41,16 @@ compile (SList ((SAtom "lambda"):(SList arg):body))@all =
   let lambdai' = acobC [compileLambdaEntrance arg,
                         compileBody body]
       lname = nameGenerator all
-  in  ICi [Assign2 Val (CExItem lname)] [(CExItem lname,CLambda lambdai')] [Val] [] 
+  in  ICi ((Assign2 Val (CExItem lname)) : varcatchLambda) 
+      [(CExItem lname,CLambda lambdai')] [Val] [] 
   where compileBody = acobC . map compile
         compileLambdaEntrance :: [SStruc] -> ICop
         compileLambdaEntrance = concat . map compileLambdaEntranceArg . reverse
           where compileLambdaEntranceArg (SAtom arg) =
                   [(Pop Argl Val),
                    (DefVar (CAtom arg) Val)]
-
+        varcatchLambda :: [ICop]
+        varcatchLambda = map (\x -> VarCatch Val x (CExItem lname)) $ map CAtom $ var lambdai'
 
 compile (SList ((SAtom "if"):pred:branch1:branch2)) =
   let b1 = nameGenerator branch1

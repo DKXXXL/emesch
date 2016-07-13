@@ -22,7 +22,7 @@ compile (SList ((SAtom "define"):(SAtom x):body:[])) =
 compile (SList ((SAtom "lambda"):(SList arg):body))@all =
   let lambdai' = acobC [compileLambdaEntrance arg,
                         compileBody body]
-  in  ICi [Assign2 Val (CLambda lambdai')] [Val] [] 
+  in  ICi [Assign3 Val (CLambda lambdai')] [Val] [] 
   where compileBody = acobC . map compile
         compileLambdaEntrance :: [SStruc] -> ICop
         compileLambdaEntrance = concat . map compileLambdaEntranceArg . reverse

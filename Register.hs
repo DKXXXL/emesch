@@ -28,12 +28,15 @@ data ICi =
 
 data ICop =
   Assign1 Register Register
-  | Assign2 Register Cdata 
+  | Assign2 Register Cdata
+  | Assign3 Register Cdata  -- Cdata = CLambda, construct lambda, catch variable then assign
   | Push Register Register
   | Pop Register Register
   | Label Cdata
   | Goto Cdata 
   | Call Register
+  | VarCatch Register Cdata Cdata
+  | VarCatch' Register Cdata Cdata
   | TestGo Register [ICop] [ICop]
   | LookVar Register Cdata
   | SetVar Cdata Register
