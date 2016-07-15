@@ -31,5 +31,22 @@ where lexaddr' :: (ICop,Table,Int) -> (ICop,Table,Int)
                       --if maybeacc miss something, then error 
                      
 -}
+{-
+withAll :: (ICi -> ICi) -> (ICi -> ICi)
+withAll f =
+  \(ICi _ links _ _)@all -> let links' = map (\
+-}
+withAll :: (ICi -> ICi) -> [(Cdata,Cdata)] ->[(Cdata,Cdata)]
+withAll f l = map (\(x,y) -> (x, case y of (CLambda y') -> f y'
+                                           y' -> y')) l
+catchedVar :: ICi -> ICi
+catchedVar (ICi ops a b vars) = ICi ops (withAll catchedVar a) b (catchedVar' ops)
+  where catchedVar' =foldr delundef 
+          where delundef :: ICop -> [Cdata] -> [Cdata]
+                delundef (SetVar x _) xs = x:xs
+                delundef (DefVar x _) xs = filter (not . (==x)) xs
+                delundef _ xs = xs
 
+lexAddr :: ICi -> ICi
+lexAddr (ICi ops links b c) 
 
