@@ -36,13 +36,13 @@ data ICop =
   | Goto Cdata 
   | Call Register
   | VarCatch Register Cdata Cdata
-  | VarCatch' Register Cdata Cdata
+  | VarCatch' Register Cdata Cdata Cdata
   | TestGo Register [ICop] [ICop]
   | LookVar Register Cdata
   | SetVar Cdata Register
   | DefVar Cdata Register
-  | GetLVec Cdata Register
-  | SetLVec Cdata Register
+  | GetLVec Cdata Cdata Register
+  | SetLVec Cdata Cdata Register
   | Save Register
   | Load Register
 data Register =

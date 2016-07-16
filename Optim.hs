@@ -1,9 +1,9 @@
+import Register
 
 
 
 
-
-type Table = [[(String,Int)]] 
+--type Table = [[(String,Int)]] 
 {-
 lexAddr :: ICi -> ICi
 lexAddr = (\((ICi a b c),_,i) -> ICi a b ((LexVec i):c)) . (\x -> lexaddr (x, [[]], 0)) 
@@ -44,9 +44,43 @@ catchedVar (ICi ops a b vars) = ICi ops (withAll catchedVar a) b (catchedVar' op
   where catchedVar' =foldr delundef 
           where delundef :: ICop -> [Cdata] -> [Cdata]
                 delundef (SetVar x _) xs = x:xs
+                delundef (LookVar _ x) xs = x:xs
                 delundef (DefVar x _) xs = filter (not . (==x)) xs
                 delundef _ xs = xs
+---Something wrong. The analyzation should be bottom-up
+
+
 
 lexAddr :: ICi -> ICi
-lexAddr (ICi ops links b c) 
+lexAddr (ICi ops links b vars) = fold'' lexAddr' ops [[],vars] 
+  where lexAddr' :: ICop -> [[Cdata]] -> (ICop,[[Cdata]])
+        lexAddr' (((SetVar x r)@org)) frames =
+          case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
+                                        (Just (a,b)) -> ((SetLVec (CInt a) (CInt b) r),frames)
+        lexAddr' (((LookVar r x)@org)) frames =
+          case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
+                                        (Just (a,b)) -> ((GetLVec (CInt a) (CInt b) r),frames)
 
+        lexAddr' (((VarCatch r x _)@org)) frames =
+          case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
+                                        (Just (a,b)) -> ((VarCatch' r (CInt a) (CInt b) r),frames)
+        lexAddr' (((DefVar x r)@org)) frames =
+          (org, addinFrames frames x)
+        lexAddr' (op) frames = (op,frames)
+        find' :: [a] -> a -> Int
+        find' (x:as) y = if x = y
+                         then 0
+                         else 1 + (find' as y)
+        find' [] _ = 0
+        searchFrames :: [[Cdata]] -> Cdata -> (Int,Int)
+        searchFrames frames x =
+          case foldl' sF frames (0,0) of ((length frames) + 1, 0) -> Nothing
+                                         x -> Just x
+          where sF :: (Int,Int) -> [Cdata] -> (Int,Int)
+                sF (a,0) frame = (a + 1, find' frame x)
+                sF (a,b) _ = (a,b)
+        addinFrames (frame:frames) x = (x:frame):frames 
+        fold'' :: (a -> b -> (a,b)) -> [a] -> b -> [a]
+        fold'' f (a:l) b = let (nexta,nextb) = f a b
+                           in (nexta : (fold'' f l nextb))
+                
