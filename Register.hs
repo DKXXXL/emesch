@@ -36,7 +36,7 @@ data ICop =
   | Goto Cdata 
   | Call Register
   | VarCatch Register Cdata Cdata
-  | VarCatch' Register Cdata Cdata Cdata
+  | VarCatch' Register Cdata Cdata Cdata Cdata
   | TestGo Register [ICop] [ICop]
   | LookVar Register Cdata
   | SetVar Cdata Register

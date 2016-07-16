@@ -45,14 +45,15 @@ catchedVar (ICi ops a b vars) = ICi ops (withAll catchedVar a) b (catchedVar' op
           where delundef :: ICop -> [Cdata] -> [Cdata]
                 delundef (SetVar x _) xs = x:xs
                 delundef (LookVar _ x) xs = x:xs
+                delundef (VarCatch _ x _) xs = x:xs
                 delundef (DefVar x _) xs = filter (not . (==x)) xs
                 delundef _ xs = xs
----Something wrong. The analyzation should be bottom-up
+---Something wrong. The analyzation should be bottom-up and side-effect
 
 
 
 lexAddr :: ICi -> ICi
-lexAddr (ICi ops links b vars) = fold'' lexAddr' ops [[],vars] 
+lexAddr (ICi ops links b vars) =ICi  (fold'' lexAddr' ops [[],vars]) (withAll lexAddr links) b vars
   where lexAddr' :: ICop -> [[Cdata]] -> (ICop,[[Cdata]])
         lexAddr' (((SetVar x r)@org)) frames =
           case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
@@ -61,9 +62,11 @@ lexAddr (ICi ops links b vars) = fold'' lexAddr' ops [[],vars]
           case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
                                         (Just (a,b)) -> ((GetLVec (CInt a) (CInt b) r),frames)
 
-        lexAddr' (((VarCatch r x _)@org)) frames =
-          case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
-                                        (Just (a,b)) -> ((VarCatch' r (CInt a) (CInt b) r),frames)
+        lexAddr' (((VarCatch r x y)@org)) frames =
+          case searchFrames frames x of Nothing ->
+                                          ((org:(lexAddr' ops)),frames)
+                                        (Just (a,b)) ->
+                                          ((VarCatch' r (CInt a) (CInt b) x y),frames)
         lexAddr' (((DefVar x r)@org)) frames =
           (org, addinFrames frames x)
         lexAddr' (op) frames = (op,frames)
