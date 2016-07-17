@@ -2,35 +2,6 @@ import Register
 
 
 
-
---type Table = [[(String,Int)]] 
-{-
-lexAddr :: ICi -> ICi
-lexAddr = (\((ICi a b c),_,i) -> ICi a b ((LexVec i):c)) . (\x -> lexaddr (x, [[]], 0)) 
-where lexaddr' :: (ICop,Table,Int) -> (ICop,Table,Int)
-      lexaddr' (DefVar cd r, t, i) = (SetLVec (CInt i) r, addaddr' t (cd,i), i+1)
-      lexaddr' (SetVar cd r, t, i) = (SetLVec (CInt $ lookaddr' t cd) r, t , i)
-      lexaddr' (LookVar r cd, t, i) = (GetLVec (CInt $ lookaddr' t cd) r, t, i)
-      lexaddr' (x, t, i) = (x, t, i)
-      lexaddr (ICi ops links regs, t, i) =
-        foldl lexaddr'acc  (proclinks links (ICi [] [] [], addframe' t ,i)) ops
-        where lexaddr'acc (_, t, i) op = lexaddr' (op, t, i)
-              lexaddracc (_, t, i) ici = lexaddr (ici, addframe' . backframe' $ t , i)
-              proclinks links basic =
-                foldl lexaddracc basic.
-                map (\x -> case x of (_,CLabel y) -> y
-                                     (_,_) -> ICI [] [] []) $ links
-              addframe' :: Table -> Table
-              addframe' = ([]:)
-              backframe' :: Table -> Table
-              backframe' (_:x) = x
-              addaddr' (y:l) x = (x:y):l
-              lookaddr' t cd =foldl maybeacc Nothing . map (find (\(x,_) -> x == cd)) $ t
-                where maybeacc (Just x) _ = x
-                      maybeacc _ (Just x) = x
-                      --if maybeacc miss something, then error 
-                     
--}
 {-
 withAll :: (ICi -> ICi) -> (ICi -> ICi)
 withAll f =
@@ -39,21 +10,42 @@ withAll f =
 withAll :: (ICi -> ICi) -> [(Cdata,Cdata)] ->[(Cdata,Cdata)]
 withAll f l = map (\(x,y) -> (x, case y of (CLambda y') -> f y'
                                            y' -> y')) l
-catchedVar :: ICi -> ICi
-catchedVar (ICi ops a b vars) = ICi ops (withAll catchedVar a) b (catchedVar' ops)
-  where catchedVar' =foldr delundef 
-          where delundef :: ICop -> [Cdata] -> [Cdata]
-                delundef (SetVar x _) xs = x:xs
-                delundef (LookVar _ x) xs = x:xs
-                delundef (VarCatch _ x _) xs = x:xs
-                delundef (DefVar x _) xs = filter (not . (==x)) xs
-                delundef _ xs = xs
----Something wrong. The analyzation should be bottom-up and side-effect
 
+lambdaCatching :: ICi -> ICi
+lambdaCatching (ICi ops links using vars) =
+  let links' = withAll (varCatch . catchedVar . lambdaCatching) links
+  in varCatch . catchedVar $ ICi ops links' using vars
+     where catchedVar :: ICi -> ICi
+           catchedVar (ICi ops a b vars) = ICi ops a b (catchedVar' ops)
+             where catchedVar' =foldr delundef 
+                     where delundef :: ICop -> [Cdata] -> [Cdata]
+                           delundef (SetVar x _) xs = x:xs
+                           delundef (LookVar _ x) xs = x:xs
+                           delundef (VarCatch _ x _) xs = x:xs
+                           delundef (DefVar x _) xs = filter (not . (==x)) xs
+                           delundef _ xs = xs
+
+           varCatch :: ICi -> ICi
+           varCatch (ICi ops links b c) =
+             where varCatch' :: [ICop] -> [ICop]
+                   varCatch' ((Assign3 r l):xs) = varcatchLambda ++ (varCatch' xs)
+                     where varcatchLambda =
+                             ((Assign2 r l):
+                              (varCatchLambda $
+                               (\(_,x) -> case x of (CLambda (ICi _ _ _ vars)) -> vars) $
+                               find'' links (\(x,y) -> x == l)))
+                             where varCatchLambda :: [Cdata] -> [ICop]
+                                   varCatchLambda = map (\x -> VarCatch Val x l)
+                   varCatch' (x:xs) = x : (varCatch' xs)
+                   find'' :: [a] -> (a -> Bool) -> Maybe a
+                   find'' (x:y) f = if f x
+                                    then Just x
+                                    else find'' y f
+                   find'' [] _ = Nothing
 
 
 lexAddr :: ICi -> ICi
-lexAddr (ICi ops links b vars) =ICi  (fold'' lexAddr' ops [[],vars]) (withAll lexAddr links) b vars
+lexAddr (ICi ops links b vars) =ICi  (fold'' lexAddr' ops [vars]) (withAll lexAddr links) b vars
   where lexAddr' :: ICop -> [[Cdata]] -> (ICop,[[Cdata]])
         lexAddr' (((SetVar x r)@org)) frames =
           case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
