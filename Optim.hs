@@ -49,10 +49,10 @@ lexAddr (ICi ops links b vars) =ICi  (fold'' lexAddr' ops [vars]) (withAll lexAd
   where lexAddr' :: ICop -> [[Cdata]] -> (ICop,[[Cdata]])
         lexAddr' (((SetVar x r)@org)) frames =
           case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
-                                        (Just (a,b)) -> ((SetLVec (CInt a) (CInt b) r),frames)
+                                        (Just (a,b)) -> ((SetVar' (CInt a) (CInt b) r),frames)
         lexAddr' (((LookVar r x)@org)) frames =
           case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
-                                        (Just (a,b)) -> ((GetLVec (CInt a) (CInt b) r),frames)
+                                        (Just (a,b)) -> ((GetVar' (CInt a) (CInt b) r),frames)
 
         lexAddr' (((VarCatch r x y)@org)) frames =
           case searchFrames frames x of Nothing ->

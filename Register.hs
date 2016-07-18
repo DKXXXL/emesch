@@ -41,8 +41,8 @@ data ICop =
   | LookVar Register Cdata
   | SetVar Cdata Register
   | DefVar Cdata Register
-  | GetLVec Cdata Cdata Register
-  | SetLVec Cdata Cdata Register
+  | GetVar' Cdata Cdata Register
+  | SetVar' Cdata Cdata Register
   | Save Register
   | Load Register
 

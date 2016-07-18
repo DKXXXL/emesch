@@ -172,6 +172,7 @@ optoC (Assign2 a cd) =sentence $ addcall "ASSIGN2" [show $ a,
   where datatype (CInt _) = "1"
         datatype (CString _) = "2"
         datatype (CBool _) = "3"
+        datatype (CExItem _) = "4"
 optoC (Push a b) =
   assignmentsentence
   (addcall "*" [addcall "(ptlong*)" [(show a) ++ "++"]])
@@ -192,15 +193,29 @@ optoC (TestGo pred branch1 branch2) =
   (foldr (++)  (map optoC branch2) "")
 
 
-optoC (LookVar a b) =
-  addcall "LOOKVAR" [quotesentence . show $ a,
+optoC (VarCatch r var cla) =
+  addcall "VARCATCH" [show r, show var, show cla]
+
+
+optoC (VarCatch' r x y cla) =
+  addcall "VARCATCH_" [show r, show x, show y, show cla]
+
+
+optoC (SetVar' x y r) =
+  addcall "SETVAR_" [show x, show y, show r]
+
+optoC (GetVar' x y r) =
+  addcall "GETVAR_" [show x, show y, show r]
+
+optoC (LookVar r b) =
+  addcall "LOOKVAR" [quotesentence . show $ r,
                      show b]
-optoC (SetVar a b) =
+optoC (SetVar a r) =
   addcall "SETVAR" [show a,
-                    quotesentence . show $ b]
-optoC (DefVar a b) =
+                    quotesentence . show $ r]
+optoC (DefVar a r) =
   addcall "SETVAR" [show a,
-                    quotesentence . show $ b]
+                    quotesentence . show $ r]
 
 
 {-
