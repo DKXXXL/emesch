@@ -35,7 +35,7 @@ quotesentence ::String -> String
 quotesentence = '&':
 ifsentence :: String -> String -> String -> String
 ifsentence pred branch1 branch2 =
-  "if" ++ (addcall "" [pred]) ++ (branch1) ++ "else" ++ (branch2)
+  "if" ++ (addcall "" [pred]) ++ (cube branch1) ++ "else" ++ (cube branch2)
 
 declfunc :: String -> String -> [String] -> String
 declfunc funcname funcbody closurevar =

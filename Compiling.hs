@@ -58,9 +58,9 @@ compile (SList ((SAtom "if"):pred:branch1:branch2)) =
   in acobC [(compile pred),
             ICi [(TestGo
                   Val
-                  [Assign2 Val (CExItem b1),
-                   Call Val]
-                  [Assign2 Val (CExItem b2),
+                  [Assign3 Val (CExItem b1),
+                   Call Val] 
+                  [Assign3 Val (CExItem b2),
                    Call Val])]
             [(CExItem b1,CLambda $ compileList branch1)
              (CExItem b2,Clambda $ compileList branch2)] [Val] []]
@@ -183,11 +183,15 @@ optoC (Pop a b) =
   (addcall "(ptlong)" [addcall "(*)" [addcall "--" [show b]]])
 
 optoC (Call a) =
-  sentence $ addcall (addcall "" [addcall "((void*)())"  [show a]]) []
+--  sentence $ addcall (addcall "" [addcall "((void*)())"  [show a]]) []
+  sentence $ addcall "CALL" [show a]
 
 optoC (TestGo pred branch1 branch2) =
-  ifsentence (show pred) (show branch1) (show branch2)
-{-
+  ifsentence (show pred)
+  (foldr (++)  (map optoC branch1) "")
+  (foldr (++)  (map optoC branch2) "")
+
+
 optoC (LookVar a b) =
   addcall "LOOKVAR" [quotesentence . show $ a,
                      show b]
@@ -197,9 +201,9 @@ optoC (SetVar a b) =
 optoC (DefVar a b) =
   addcall "SETVAR" [show a,
                     quotesentence . show $ b]
--}
 
 
+{-
 optoC (GetLVec (CInt cd) r) =
   assignmentsentence
   (show r)
@@ -208,10 +212,11 @@ optoC (SetLVec (CInt cd) r) =
   assignmentsentence
   (addcall "*" [addcall "(ptlong*)" [offsetof "LexVec" cd]])
   (show r)
-
+-}
 linkagetoC (CExItem a,CLabel b) = icitoC b a
 linkagetoC (CExItem a,b) = declvar a $ show b
 
-
+{-
 regtoC (LexVec i) = declarray "LexVec" i
 regtoC (x) = declvar x . show . CInt $ 0 
+-}

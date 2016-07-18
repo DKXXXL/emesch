@@ -45,11 +45,12 @@ data ICop =
   | SetLVec Cdata Cdata Register
   | Save Register
   | Load Register
+
 data Register =
   Exp
   | Argl -- Pointer
   | Val -- Var
-  | LexVec Int
+  
   deriving Show
     
 
