@@ -35,6 +35,8 @@ data ICop =
   | Label Cdata
   | Goto Cdata 
   | Call Register
+  | CCall Register Cdata
+  | CBack
   | VarCatch Register Cdata Cdata
   | VarCatch' Register Cdata Cdata Cdata Cdata
   | TestGo Register [ICop] [ICop]
@@ -45,7 +47,6 @@ data ICop =
   | SetVar' Cdata Cdata Register
   | Save Register
   | Load Register
-
 data Register =
   Exp
   | Argl -- Pointer

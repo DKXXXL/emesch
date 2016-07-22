@@ -70,9 +70,27 @@ compile (SList ((SAtom "set!"):(SAtom var):val:[])) =
   acobC [(compile val),
          ICi [(SetVar (CAtom var) Val)] [] [Val] [CAtom var]]
 
-
+{-
 compile (SList ((SAtom "call/cc"):x:[]))@x' =
-  undefined
+  let name = nameGenerator x
+  in (acobC [ ICi [Save Argl Val,
+                   DefVar (CAtom "__argl") Val,
+                   Save Exp Val,
+                   DefVar (CAtom "__exp") Val] [] [Argl,Val,Exp] [],
+              
+              compile x,
+              
+              ICi [
+--                Push Exp Val,
+--                   Assign3 Val (CExItem name),
+--                   Push Argl Val,
+--                   Pop Exp Val,
+                CCall Val]
+              [Exp,Val,Argl]
+              []
+            ])
+
+ -}
 
 
 compile (SList (func:args)) =
@@ -89,6 +107,14 @@ compile (SList (func:args)) =
 
 
 
+
+
+
+--compile' :: (SStruc,(Int,Int)) -> (ICi,(Int,Int))
+
+
+
+
 nameGenerator :: [SStruc] -> String
 nameGenerator = concat . map nameGenerator'
 where nameGenerator' :: SStruc -> String
@@ -98,6 +124,8 @@ where nameGenerator' :: SStruc -> String
       nameGenerator' (SList l) = nameGenerator l
       nameGenerator' (SBool x) = show x
       nameGenerator' (SNum x) = show x
+
+
 
 
 ------- Environment 

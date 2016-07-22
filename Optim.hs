@@ -79,3 +79,39 @@ lexAddr (ICi ops links b vars) =ICi  (fold'' lexAddr' ops [vars]) (withAll lexAd
         fold'' f (a:l) b = let (nexta,nextb) = f a b
                            in (nexta : (fold'' f l nextb))
                 
+foldstate :: ((a,state) -> ([a],state)) -> [a] -> state -> ([a],state)
+foldstate f (x:l) o = case f (x,o) of (x',o') -> case foldstate f l o' of (l',o'') -> (x'++l',o'')
+{-      
+callccOptim :: ICi -> ICi
+callccOptim' ((ICi opss linkss c d),oc) =
+  let (opss',(links',oc')) = foldstate callcco opss (linkss,oc)
+  in let (links'',oc'')  =  foldstate callccolinks links' oc'
+     in (ICi opss' links'' c d, oc'')
+  where  callccolinks :: ((Cdata,Cdata),Int) -> ([Cdata,Cdata],Int)
+         callccolinks ((a,CLambda n),c) =
+           let (i',c') = callccOptim' (n,c)
+           in ([(a,CLambda $ i')],c')
+         
+         callcco :: (ICop, ([(Cdata,Cdata)],c)) -> ([ICop],([(Cdata,Cdata)],c))
+         callcco (CCall r,(frame,c)) =
+           let lamname = "TRBLAMBDA" ++ (show c)
+               labname = "TRBLABEL" ++ (show c)
+               back = CLambda $ ICi [Pop Argl Val,
+                                     DefVar (CAtom "__ret") Val,
+                                     LookVar (CAtom "__argl") Val,
+                                     Load Argl Val,
+                                     LookVar (CAtom "__exp") Val,
+                                     Load Exp Val,
+                                     LookVar (CAtom "__ret") Val,
+                                     Goto (CExItem labname)] [] [Val,Argl,Exp] []
+         
+           in ([Push Exp Val,
+                Assign3 Val (CExItem lamname),
+                Push Argl Val,
+                Pop Exp Val,
+                Call Val,
+                Label (CExItem labname)],(((CExItem lamname),back):frame,c+1))
+              
+         callcco (x,y) = ([x],y)
+              
+-}
