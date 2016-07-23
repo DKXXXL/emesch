@@ -81,7 +81,7 @@ lexAddr (ICi ops links b vars) =ICi  (fold'' lexAddr' ops [vars]) (withAll lexAd
                 
 foldstate :: ((a,state) -> ([a],state)) -> [a] -> state -> ([a],state)
 foldstate f (x:l) o = case f (x,o) of (x',o') -> case foldstate f l o' of (l',o'') -> (x'++l',o'')
-{-      
+      
 callccOptim :: ICi -> ICi
 callccOptim' ((ICi opss linkss c d),oc) =
   let (opss',(links',oc')) = foldstate callcco opss (linkss,oc)
@@ -97,12 +97,18 @@ callccOptim' ((ICi opss linkss c d),oc) =
            let lamname = "TRBLAMBDA" ++ (show c)
                labname = "TRBLABEL" ++ (show c)
                back = CLambda $ ICi [Pop Argl Val,
-                                     DefVar (CAtom "__ret") Val,
+                                     DefVar (CAtom "__val") Val,
                                      LookVar (CAtom "__argl") Val,
                                      Load Argl Val,
                                      LookVar (CAtom "__exp") Val,
                                      Load Exp Val,
                                      LookVar (CAtom "__ret") Val,
+                                     Load Ret Val,
+                                     LookVar (CAtom "__val") Val,
+                                     Push Argl Val,
+                                     LookVar (CAtom "__env") Val,
+                                     Load Env Val,
+                                     Pop Argl Val,
                                      Goto (CExItem labname)] [] [Val,Argl,Exp] []
          
            in ([Push Exp Val,
@@ -114,4 +120,5 @@ callccOptim' ((ICi opss linkss c d),oc) =
               
          callcco (x,y) = ([x],y)
               
--}
+
+callfunOpt :: ICi -> ICi

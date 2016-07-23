@@ -35,6 +35,7 @@ data ICop =
   | Label Cdata
   | Goto Cdata 
   | Call Register
+  | Callc Register Cdata
   | CCall Register Cdata
   | CBack
   | VarCatch Register Cdata Cdata
@@ -49,9 +50,10 @@ data ICop =
   | Load Register
 data Register =
   Exp
-  | Argl -- Pointer
-  | Val -- Var
-  
-  deriving Show
+  | Argl    -- Pointer
+  | Val     -- Var
+  | Env     -- Envrionment Stack
+  | Ret     -- Return Stack
+deriving Show
     
 

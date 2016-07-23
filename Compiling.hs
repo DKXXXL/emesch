@@ -70,13 +70,18 @@ compile (SList ((SAtom "set!"):(SAtom var):val:[])) =
   acobC [(compile val),
          ICi [(SetVar (CAtom var) Val)] [] [Val] [CAtom var]]
 
-{-
+
 compile (SList ((SAtom "call/cc"):x:[]))@x' =
   let name = nameGenerator x
-  in (acobC [ ICi [Save Argl Val,
+  in (acobC [ ICi [Save Env Val,
+                   DefVar (CAtom "__env") Val,
+                   Save Argl Val,
                    DefVar (CAtom "__argl") Val,
                    Save Exp Val,
-                   DefVar (CAtom "__exp") Val] [] [Argl,Val,Exp] [],
+                   DefVar (CAtom "__exp") Val,
+                   Save Ret Val,
+                   DefVar (CAtom "__ret") Val
+                   ] [] [Argl,Val,Exp] [],
               
               compile x,
               
@@ -90,7 +95,7 @@ compile (SList ((SAtom "call/cc"):x:[]))@x' =
               []
             ])
 
- -}
+
 
 
 compile (SList (func:args)) =
