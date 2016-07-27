@@ -27,8 +27,8 @@ compile (SBool x) =ICi [Assign2 Val (CBool x)] [] [Val] []
 
 compile (SAtom x) =ICi [LookVar Val (CAtom x)] [] [Val] [CAtom x]
 
-compile (SList ((SAtom "define"):(SList ((SAtom funcName):args)):body:[])) =
-  compile (SList ((SAtom "define"):(SAtom funcName):(SList (SAtom "lambda"):(SList args):body)))
+compile (SList ((SAtom "define"):(SList (funcName:args)):body:[])) =
+  compile (SList ((SAtom "define"):(funcName):(SList (SAtom "lambda"):(SList args):body)))
 
 
 compile (SList ((SAtom "define"):(SAtom x):body:[])) =
