@@ -103,7 +103,7 @@ compile (SList (func:args)) =
          (ICi [Push Exp Val] [] [Exp,Val] []),
          (compileArgs args),
          (ICi [Pop Exp Val,
-               Run Val] [] [Exp,Val] [])]
+               Call Val] [] [Exp,Val] [])]
   where compileArgs :: [SStruc] -> ICi
         compileArgs =
           acobC . concat $

@@ -79,20 +79,23 @@ lexAddr (ICi ops links b vars) =ICi  (fold'' lexAddr' ops [vars]) (withAll lexAd
         fold'' f (a:l) b = let (nexta,nextb) = f a b
                            in (nexta : (fold'' f l nextb))
                 
-foldstate :: ((a,state) -> ([a],state)) -> [a] -> state -> ([a],state)
+
+newtype Els elem stat = (elem,stat)
+foldstate :: ((Els a state) -> (Els [a] state)) -> [a] -> state -> (Els [a] state)
 foldstate f (x:l) o = case f (x,o) of (x',o') -> case foldstate f l o' of (l',o'') -> (x'++l',o'')
-      
+
+                                      
 callccOptim :: ICi -> ICi
 callccOptim' ((ICi opss linkss c d),oc) =
-  let (opss',(links',oc')) = foldstate callcco opss (linkss,oc)
-  in let (links'',oc'')  =  foldstate callccolinks links' oc'
+  let (ELs opss' (links',oc')) = foldstate callcco opss (linkss,oc)
+  in let (Els links'' oc'')  =  foldstate callccolinks links' oc'
      in (ICi opss' links'' c d, oc'')
-  where  callccolinks :: ((Cdata,Cdata),Int) -> ([Cdata,Cdata],Int)
-         callccolinks ((a,CLambda n),c) =
+  where  callccolinks :: (Els (Cdata,Cdata) Int) -> (Els [Cdata,Cdata] Int)
+         callccolinks (Els (a,CLambda n) c) =
            let (i',c') = callccOptim' (n,c)
-           in ([(a,CLambda $ i')],c')
-         
-         callcco :: (ICop, ([(Cdata,Cdata)],c)) -> ([ICop],([(Cdata,Cdata)],c))
+           in (Els [(a,CLambda $ i')] c')
+         callccolinks (Els a b) = Els [a] b
+         callcco :: (Els ICop ([(Cdata,Cdata)],c)) -> (Els [ICop] ([(Cdata,Cdata)],c))
          callcco (CCall r,(frame,c)) =
            let lamname = "TRBLAMBDA" ++ (show c)
                labname = "TRBLABEL" ++ (show c)
@@ -109,7 +112,9 @@ callccOptim' ((ICi opss linkss c d),oc) =
                                      LookVar (CAtom "__env") Val,
                                      Load Env Val,
                                      Pop Argl Val,
-                                     Goto (CExItem labname)] [] [Val,Argl,Exp] []
+                                     Goto (CExItem labname)] []
+                 [Val,Argl,Exp,Ret,Env]
+                 [(CAtom "__argl"),(CAtom "__exp"),(CAtom "__ret"),(CAtom "__env")]
          
            in ([Push Exp Val,
                 Assign3 Val (CExItem lamname),
@@ -118,7 +123,13 @@ callccOptim' ((ICi opss linkss c d),oc) =
                 Call Val,
                 Label (CExItem labname)],(((CExItem lamname),back):frame,c+1))
               
-         callcco (x,y) = ([x],y)
+         callcco (Els x y) = Els [x] y
               
 
 callfunOpt :: ICi -> ICi
+callfunOpt (ICi ops links b c) =
+  ICi (foldr ops combine' []) (withall callfunOpt links) (b ++ [Ret,Env]) c  
+  where combine' :: ICop -> [ICop] -> [ICop]
+        combine' (Call r) oops = [Callc r $ CLambda $ ICi oops [] [] []]
+        combine' oop oops = oop : oops
+        
