@@ -16,12 +16,12 @@ foldstate f (x:l) o = case f (x,o) of (x',o') -> case foldstate f l o' of (l',o'
 
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
-----------------------These are necessary Optimization-----------------------------------
-necessaryTransform = lexOpt . callccOpt
+----------------------These are necessary Transformation---------------------------------
+necessaryTransform = lexTrs . callccTrs
 
 
-callccOpt :: ICi -> ICi
-callccOpt = callfunOpt . callccOptim
+callccTrs :: ICi -> ICi
+callccTrs = callfunOpt . callccOptim
 
 -----------------------------------------------------------------------------------------
 ---------CallccOpt :
@@ -79,8 +79,8 @@ callfunOpt (ICi ops links b c) =
 --------------------------------------------------------------------------------
 
 
-lexOpt :: ICi -> ICi
-lexOpt = lexAddr . lambdaDefVar . lambdaCatching
+lexTrs :: ICi -> ICi
+lexTrs = lexAddr . lambdaDefVar . lambdaCatching
 
 --------------------------------------------------------------------------------
 ----LexOpt :
