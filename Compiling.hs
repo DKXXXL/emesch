@@ -160,6 +160,7 @@ allcompile opt =
   linkagetoC .
   (\x ->(CExItem "main",CLambda x)) .
   opt.
+  necessaryTransform .
   envSet .
   compileList .
   (map macroTransformer)
