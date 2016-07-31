@@ -43,25 +43,30 @@ lambdaCatching (ICi ops links using vars) =
                                     else find'' y f
                    find'' [] _ = Nothing
 
+lambdaDefvar :: ICi -> ICi
+--lambdaDefvar is the one make local defined variable into the structure
+--make all the locally defined variable into 'vars' of 'ICi'
 
 lexAddr :: ICi -> ICi
 lexAddr (ICi ops links b vars) =ICi  (fold'' lexAddr' ops [vars]) (withAll lexAddr links) b vars
   where lexAddr' :: ICop -> [[Cdata]] -> (ICop,[[Cdata]])
         lexAddr' (((SetVar x r)@org)) frames =
-          case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
+          case searchFrames frames x of Nothing -> ((org),frames)
                                         (Just (a,b)) -> ((SetVar' (CInt a) (CInt b) r),frames)
         lexAddr' (((LookVar r x)@org)) frames =
-          case searchFrames frames x of Nothing -> ((org:(lexAddr' ops)),frames)
+          case searchFrames frames x of Nothing -> ((org),frames)
                                         (Just (a,b)) -> ((GetVar' (CInt a) (CInt b) r),frames)
 
         lexAddr' (((VarCatch r x y)@org)) frames =
           case searchFrames frames x of Nothing ->
-                                          ((org:(lexAddr' ops)),frames)
+                                          ((org),frames)
                                         (Just (a,b)) ->
                                           ((VarCatch' r (CInt a) (CInt b) x y),frames)
         lexAddr' (((DefVar x r)@org)) frames =
-          (org, addinFrames frames x)
-        lexAddr' (op) frames = (op,frames)
+          case searchFrames frames x of Nothing -> ((org),frames)
+                                        (Just (a,b)) -> ((SetVar' (CInt a) (CInt b) r),frames)
+
+        lexAddr' (op) frames = (op,frames)  
         find' :: [a] -> a -> Int
         find' (x:as) y = if x = y
                          then 0
@@ -81,6 +86,8 @@ lexAddr (ICi ops links b vars) =ICi  (fold'' lexAddr' ops [vars]) (withAll lexAd
                 
 
 newtype Els elem stat = (elem,stat)
+instance Monad (Els ele sta) where
+  
 foldstate :: ((Els a state) -> (Els [a] state)) -> [a] -> state -> (Els [a] state)
 foldstate f (x:l) o = case f (x,o) of (x',o') -> case foldstate f l o' of (l',o'') -> (x'++l',o'')
 
