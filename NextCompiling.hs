@@ -86,7 +86,7 @@ lexTrs = lexAddr . lambdaDefVar . lambdaCatching
 ----LexOpt :
 lambdaCatching :: ICi -> ICi
 lambdaCatching (ICi ops links using vars) =
-  let links' = withAll (varCatch . catchedVar . lambdaCatching) links
+  let links' = withAll lambdaCatching links
   in varCatch . catchedVar $ ICi ops links' using vars
      where catchedVar :: ICi -> ICi
            catchedVar (ICi ops a b vars) = ICi ops a b (catchedVar' ops)
@@ -99,9 +99,9 @@ lambdaCatching (ICi ops links using vars) =
                            delundef _ xs = xs
 
            varCatch :: ICi -> ICi
-           varCatch (ICi ops links b c) =
-             where varCatch' :: [ICop] -> [ICop]
-                   varCatch' ((Assign3 r l):xs) = varcatchLambda ++ (varCatch' xs)
+           varCatch (ICi ops links b c) =  ICi (concat $ map varCatch' ops) links b c
+             where varCatch' :: ICop -> [ICop]
+                   varCatch' (Assign3 r l) = varcatchLambda
                      where varcatchLambda =
                              ((Assign2 r l):
                               (varCatchLambda $
@@ -109,7 +109,7 @@ lambdaCatching (ICi ops links using vars) =
                                find'' links (\(x,y) -> x == l)))
                              where varCatchLambda :: [Cdata] -> [ICop]
                                    varCatchLambda = map (\x -> VarCatch Val x l)
-                   varCatch' (x:xs) = x : (varCatch' xs)
+                   varCatch' x = [x]
                    find'' :: [a] -> (a -> Bool) -> Maybe a
                    find'' (x:y) f = if f x
                                     then Just x
@@ -121,40 +121,36 @@ lambdaDefvar :: ICi -> ICi
 --make all the locally defined variable into 'vars' of 'ICi'
 
 lexAddr :: ICi -> ICi
-lexAddr (ICi ops links b vars) =ICi  (fold'' lexAddr' ops [vars]) (withAll lexAddr links) b vars
-  where lexAddr' :: ICop -> [[Cdata]] -> (ICop,[[Cdata]])
+lexAddr (ICi ops links b vars) =
+  ICi  (map (\x -> lexAddr' x [vars]) ops) (withAll lexAddr links) b vars
+  where lexAddr' :: ICop -> [[Cdata]] -> ICop
         lexAddr' (((SetVar x r)@org)) frames =
-          case searchFrames frames x of Nothing -> ((org),frames)
-                                        (Just (a,b)) -> ((SetVar' (CInt a) (CInt b) r),frames)
+          case searchFrames frames x of Nothing -> ((org))
+                                        (Just (a,b)) -> ((SetVar' (CInt a) (CInt b) r))
         lexAddr' (((LookVar r x)@org)) frames =
-          case searchFrames frames x of Nothing -> ((org),frames)
-                                        (Just (a,b)) -> ((GetVar' (CInt a) (CInt b) r),frames)
+          case searchFrames frames x of Nothing -> ((org))
+                                        (Just (a,b)) -> ((GetVar' (CInt a) (CInt b) r))
 
         lexAddr' (((VarCatch r x y)@org)) frames =
           case searchFrames frames x of Nothing ->
-                                          ((org),frames)
+                                          ((org))
                                         (Just (a,b)) ->
-                                          ((VarCatch' r (CInt a) (CInt b) x y),frames)
+                                          ((VarCatch' r (CInt a) (CInt b) x y))
         lexAddr' (((DefVar x r)@org)) frames =
-          case searchFrames frames x of Nothing -> ((org),frames)
-                                        (Just (a,b)) -> ((SetVar' (CInt a) (CInt b) r),frames)
+          case searchFrames frames x of Nothing -> ((org))
+                                        (Just (a,b)) -> ((SetVar' (CInt a) (CInt b) r))
 
-        lexAddr' (op) frames = (op,frames)  
-        find' :: [a] -> a -> Int
-        find' (x:as) y = if x = y
-                         then 0
-                         else 1 + (find' as y)
-        find' [] _ = 0
-        searchFrames :: [[Cdata]] -> Cdata -> (Int,Int)
+        lexAddr' (op) frames = op 
+        searchFrames :: [[Cdata]] -> Cdata -> Maybe (Int,Int)
         searchFrames frames x =
           case foldl' sF frames (0,0) of ((length frames) + 1, 0) -> Nothing
                                          x -> Just x
           where sF :: (Int,Int) -> [Cdata] -> (Int,Int)
                 sF (a,0) frame = (a + 1, find' frame x)
                 sF (a,b) _ = (a,b)
-        addinFrames (frame:frames) x = (x:frame):frames 
-        fold'' :: (a -> b -> (a,b)) -> [a] -> b -> [a]
-        fold'' f (a:l) b = let (nexta,nextb) = f a b
-                           in (nexta : (fold'' f l nextb))
-                
-
+                find' :: [a] -> a -> Int
+                find' (x:as) y = if x = y
+                                 then 0
+                                 else 1 + (find' as y)
+                find' [] _ = 0
+ 
