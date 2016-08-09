@@ -11,14 +11,19 @@ data Cdata =
   | CAtom String
   | CLambda ICi  -- Ops, Register and variable in use
   | CExItem String
-    
+  deriving Show
   
 
 --data ICi =
 --  ICi {ops :: [ICop], using :: [Register], var :: [Cdata]}
 
 data ICi =
-  ICi {ops :: [ICop], links :: [(Cdata,Cdata)] ,using :: [Register] ,var :: [Cdata]}
+  ICi {ops :: [ICop],
+       links :: [(Cdata,Cdata)] ,
+       using :: [Register] ,
+       var :: [Cdata],
+       refvar ::[Cdata]}
+  deriving Show
 -- operation is the operating list
 -- linkages are the external variable
 -- using means the registers in use
@@ -37,7 +42,7 @@ data ICop =
   | Call Register
   | Callc Register Cdata
   | CCall Register Cdata
-  | CBack
+  | Callb
   | VarCatch Register Cdata Cdata
   | VarCatch' Register Cdata Cdata Cdata Cdata
   | TestGo Register [ICop] [ICop]
@@ -48,6 +53,7 @@ data ICop =
   | SetVar' Cdata Cdata Register
   | Save Register
   | Load Register
+  deriving Show
 data Register =
   Exp
   | Argl    -- Pointer
@@ -57,3 +63,5 @@ data Register =
 deriving Show
     
 
+nameGenerator' :: ICi -> String
+nameGenerator'  = show

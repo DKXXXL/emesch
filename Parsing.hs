@@ -7,6 +7,7 @@ import Text.Parsec.Combinator
 import Internal 
 
 symbol :: Parser Char
+
 symbol = oneOf "~!@#$%^&*_+:?`;,./-="
 
 spaces :: Parser String
@@ -42,8 +43,9 @@ parserExp = parserAtom' <|> parserList <|> parserString <|> parserQuote
 
 
 type SAtom = String
+
 data SStruc =
-  SAtom SAtom
+  SAtom String
   | SString String
   | SQuote SStruc
   | SList [SStruc]

@@ -1,4 +1,5 @@
 import Parsing
+module Macro (macroTransformer) where
 
 module Macro(macroTransformer)
 type MacroT = SStruc -> (SStruc,Bool)

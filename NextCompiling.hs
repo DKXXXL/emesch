@@ -1,6 +1,6 @@
 import Register
-
-
+import Data.List (nub, last, init)
+module NextCompiling(necessartTransform) where
 
 {-
 withAll :: (ICi -> ICi) -> (ICi -> ICi)
@@ -17,7 +17,7 @@ foldstate f (x:l) o = case f (x,o) of (x',o') -> case foldstate f l o' of (l',o'
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 ----------------------These are necessary Transformation---------------------------------
-necessaryTransform = lexTrs . callccTrs
+necessaryTransform =callcTrs . lexTrs . callccTrs
 
 
 callccTrs :: ICi -> ICi
@@ -28,10 +28,10 @@ callccTrs = callfunOpt . callccOptim
 newtype Els elem stat = (elem,stat)
 
 callccOptim :: ICi -> ICi
-callccOptim' ((ICi opss linkss c d),oc) =
+callccOptim' ((ICi opss linkss c d e),oc) =
   let (ELs opss' (links',oc')) = foldstate callcco opss (linkss,oc)
   in let (Els links'' oc'')  =  foldstate callccolinks links' oc'
-     in (ICi opss' links'' c d, oc'')
+     in (ICi opss' links'' c d e, oc'')
   where  callccolinks :: (Els (Cdata,Cdata) Int) -> (Els [Cdata,Cdata] Int)
          callccolinks (Els (a,CLambda n) c) =
            let (i',c') = callccOptim' (n,c)
@@ -55,9 +55,9 @@ callccOptim' ((ICi opss linkss c d),oc) =
                                      Load Env Val,
                                      Pop Argl Val,
                                      Goto (CExItem labname)] []
-                 [Val,Argl,Exp,Ret,Env]
+                 [Val,Argl,Exp,Ret,Env] 
                  [(CAtom "__argl"),(CAtom "__exp"),(CAtom "__ret"),(CAtom "__env")]
-         
+                 []
            in ([Push Exp Val,
                 Assign3 Val (CExItem lamname),
                 Push Argl Val,
@@ -69,28 +69,39 @@ callccOptim' ((ICi opss linkss c d),oc) =
               
 
 callfunOpt :: ICi -> ICi
-callfunOpt (ICi ops links b c) =
-  ICi (foldr ops combine' []) (withall callfunOpt links) (b ++ [Ret,Env]) c  
+callfunOpt (ICi ops links b c d) =
+  ICi (foldr combine' [Callb] ops) (withall callfunOpt links) (b ++ [Ret,Env]) c d  
   where combine' :: ICop -> [ICop] -> [ICop]
-        combine' (Call r) oops = [Callc r $ CLambda $ ICi oops [] [] []]
+        combine' (Call r) oops =[Callc r $ CLambda $ ICi oops [] [] []]
         combine' oop oops = oop : oops
-        
+
+
+callcTrs :: ICi -> ICi
+callcTrs (ICi ops links b c d) =
+  case last ops of (Callc r (Clambda l)@l') ->
+                     ICi
+                     ((init ops) ++ (Callc r (CExItem $ nameGenerator' l)))
+                     (withAll callcTrs (CExItem $ nameGenerator' l ,l'):links)
+                     b
+                     c
+                     d
+                   x -> (ICi ops links b c d)
 
 --------------------------------------------------------------------------------
 
 
 lexTrs :: ICi -> ICi
-lexTrs = lexAddr . lambdaDefVar . lambdaCatching
+lexTrs = lexAddr . lambdaVarMonoize . lambdaCatching
 
 --------------------------------------------------------------------------------
 ----LexOpt :
 lambdaCatching :: ICi -> ICi
-lambdaCatching (ICi ops links using vars) =
+lambdaCatching (ICi ops links using allvars vars) =
   let links' = withAll lambdaCatching links
   in varCatch . catchedVar $ ICi ops links' using vars
      where catchedVar :: ICi -> ICi
-           catchedVar (ICi ops a b vars) = ICi ops a b (catchedVar' ops)
-             where catchedVar' =foldr delundef 
+           catchedVar (ICi ops a b c vars) = ICi ops a b c (catchedVar' ops)
+             where catchedVar' = foldr delundef [] 
                      where delundef :: ICop -> [Cdata] -> [Cdata]
                            delundef (SetVar x _) xs = x:xs
                            delundef (LookVar _ x) xs = x:xs
@@ -99,7 +110,7 @@ lambdaCatching (ICi ops links using vars) =
                            delundef _ xs = xs
 
            varCatch :: ICi -> ICi
-           varCatch (ICi ops links b c) =  ICi (concat $ map varCatch' ops) links b c
+           varCatch (ICi ops links b c d) =  ICi (concat $ map varCatch' ops) links b c d
              where varCatch' :: ICop -> [ICop]
                    varCatch' (Assign3 r l) = varcatchLambda
                      where varcatchLambda =
@@ -116,31 +127,54 @@ lambdaCatching (ICi ops links using vars) =
                                     else find'' y f
                    find'' [] _ = Nothing
 
-lambdaDefvar :: ICi -> ICi
---lambdaDefvar is the one make local defined variable into the structure
---make all the locally defined variable into 'vars' of 'ICi'
+lambdaVarMonoize :: ICi -> ICi
+lambdaVarMonoize (ICi a links r vars ref) =
+  ICi a (withAll lambdaVarMonoize links) r (monoize vars) ref
+  where monoize = nub
 
 lexAddr :: ICi -> ICi
-lexAddr (ICi ops links b vars) =
-  ICi  (map (\x -> lexAddr' x [vars]) ops) (withAll lexAddr links) b vars
+lexAddr (ICi ops links b vars thisref) =
+  ICi  (map (\x -> lexAddr' x [vars] [thisref]) ops) (withAll lexAddr links) b vars
   where lexAddr' :: ICop -> [[Cdata]] -> ICop
-        lexAddr' (((SetVar x r)@org)) frames =
-          case searchFrames frames x of Nothing -> ((org))
-                                        (Just (a,b)) -> ((SetVar' (CInt a) (CInt b) r))
-        lexAddr' (((LookVar r x)@org)) frames =
-          case searchFrames frames x of Nothing -> ((org))
-                                        (Just (a,b)) -> ((GetVar' (CInt a) (CInt b) r))
+        lexAddr' (((SetVar x r)@org)) frames frames' =
+          maybeIF
+          (searchFrames frames x)
+          org
+          (\(a,b) ->
+            maybeIF
+            (searchFrames frames' x)
+            (SetVar1 (CInt a) (CInt b) r)
+            (\_ -> SetVar2 (CInt a) (CInt b) r))
+          
+        lexAddr' (((LookVar r x)@org)) frames frames' =
+          maybeIF
+          (searchFrames frames x)
+          org
+          (\(a,b) ->
+            maybeIF
+            (searchFrames frames' x)
+            (GetVar1 (CInt a) (CInt b) r)
+            (\_ -> GetVar2 (CInt a) (CInt b) r))
 
-        lexAddr' (((VarCatch r x y)@org)) frames =
-          case searchFrames frames x of Nothing ->
-                                          ((org))
-                                        (Just (a,b)) ->
-                                          ((VarCatch' r (CInt a) (CInt b) x y))
-        lexAddr' (((DefVar x r)@org)) frames =
-          case searchFrames frames x of Nothing -> ((org))
-                                        (Just (a,b)) -> ((SetVar' (CInt a) (CInt b) r))
 
-        lexAddr' (op) frames = op 
+        lexAddr' (((VarCatch r x y)@org)) frames frames'=
+          maybeIF
+          (searchFrames frames x)
+          org
+          (\(a,b) ->
+            maybeIF
+            (searchFrames frames' x)
+            (VarCatch1 r (CInt a) (CInt b) y)
+            (\_ -> VarCatch2 r (CInt a) (CInt b) y))
+
+        lexAddr' (((DefVar x r)@org)) frames frames'=
+          case searchFrames frames x of Nothing -> ((org))
+                                        (Just (a,b)) -> ((SetVar1 (CInt a) (CInt b) r))
+
+        lexAddr' (op) frames = op
+        maybeIF :: (Maybe a) -> b -> (a -> b) -> b
+        maybeIF (Just x) _ f = f x
+        maybeIF (Nothing) na _ = na
         searchFrames :: [[Cdata]] -> Cdata -> Maybe (Int,Int)
         searchFrames frames x =
           case foldl' sF frames (0,0) of ((length frames) + 1, 0) -> Nothing

@@ -5,7 +5,7 @@ import CPattern
 import Data.List (nub, concat, find)
 import Data.Char (toUpper)
 
-
+module Compiling (allcompile) where
 -------------------------------------------------------------------------------------
 -- 1. Cdata have a pointer long data ahead, because it has to store the class of data
 -------------------------------------------------------------------------------------
@@ -21,11 +21,11 @@ acobC icis = ICi
 
 
 compile :: SStruc -> ICi
-compile (SString x) =ICi [Assign2 Val (CString x)] [] [Val] []
-compile (SNum x) =ICi [Assign2 Val (CInt x)] [] [Val] []
-compile (SBool x) =ICi [Assign2 Val (CBool x)] [] [Val] []
+compile (SString x) =ICi [Assign2 Val (CString x)] [] [Val] [] []
+compile (SNum x) =ICi [Assign2 Val (CInt x)] [] [Val] [] []
+compile (SBool x) =ICi [Assign2 Val (CBool x)] [] [Val] [] []
 
-compile (SAtom x) =ICi [LookVar Val (CAtom x)] [] [Val] [CAtom x]
+compile (SAtom x) =ICi [LookVar Val (CAtom x)] [] [Val] [CAtom x] []
 
 compile (SList ((SAtom "define"):(SList (funcName:args)):body:[])) =
   compile (SList ((SAtom "define"):(funcName):(SList (SAtom "lambda"):(SList args):body)))
@@ -33,8 +33,8 @@ compile (SList ((SAtom "define"):(SList (funcName:args)):body:[])) =
 
 compile (SList ((SAtom "define"):(SAtom x):body:[])) =
   acobC $
-  (compile body):
-  (ICi [DefVar (CAtom x) Val] [] [Val] [CAtom x]):[]
+  [(compile body),
+   (ICi [DefVar (CAtom x) Val] [] [Val] [CAtom x] [])]
 
 
 compile (SList ((SAtom "lambda"):(SList arg):body))@all =
@@ -42,7 +42,7 @@ compile (SList ((SAtom "lambda"):(SList arg):body))@all =
                         compileBody body]
       lname = nameGenerator all
   in  ICi ((Assign3 Val (CExItem lname)) : varcatchLambda) 
-      [(CExItem lname,CLambda lambdai')] [Val] [] 
+      [(CExItem lname,CLambda lambdai')] [Val] [] []
   where compileBody = acobC . map compile
         compileLambdaEntrance :: [SStruc] -> ICop
         compileLambdaEntrance = concat . map compileLambdaEntranceArg . reverse
@@ -63,12 +63,12 @@ compile (SList ((SAtom "if"):pred:branch1:branch2)) =
                   [Assign3 Val (CExItem b2),
                    Call Val])]
             [(CExItem b1,CLambda $ compileList branch1)
-             (CExItem b2,Clambda $ compileList branch2)] [Val] []]
+             (CExItem b2,Clambda $ compileList branch2)] [Val] [] []]
   where compileList = acobC . map compile
 
 compile (SList ((SAtom "set!"):(SAtom var):val:[])) =
   acobC [(compile val),
-         ICi [(SetVar (CAtom var) Val)] [] [Val] [CAtom var]]
+         ICi [(SetVar (CAtom var) Val)] [] [Val] [CAtom var] []]
 
 
 compile (SList ((SAtom "call/cc"):x:[]))@x' =
@@ -81,7 +81,10 @@ compile (SList ((SAtom "call/cc"):x:[]))@x' =
                    DefVar (CAtom "__exp") Val,
                    Save Ret Val,
                    DefVar (CAtom "__ret") Val
-                   ] [] [Argl,Val,Exp] [],
+                   ] [] [Argl,Val,Exp] [(CAtom "__env"),
+                                        (CAtom "__argl"),
+                                        (CAtom "__exp"),
+                                        (CAtom "__ret")] [],
               
               compile x,
               
@@ -100,15 +103,15 @@ compile (SList ((SAtom "call/cc"):x:[]))@x' =
 
 compile (SList (func:args)) =
   acobC [(compile func),
-         (ICi [Push Exp Val] [] [Exp,Val] []),
+         (ICi [Push Exp Val] [] [Exp,Val] [] []),
          (compileArgs args),
          (ICi [Pop Exp Val,
-               Call Val] [] [Exp,Val] [])]
+               Call Val] [] [Exp,Val] [] [])]
   where compileArgs :: [SStruc] -> ICi
         compileArgs =
           acobC . concat $
           map (\x -> [(compile x),
-                      (ICi [Push Argl Val] [Argl,Val] [])])
+                      (ICi [Push Argl Val] [] [Argl,Val] [] [])])
 
 
 
@@ -136,7 +139,7 @@ where nameGenerator' :: SStruc -> String
 ------- Environment 
 
 envSet :: ICi -> ICi
-envSet (ICi ops x y z) = ICi (envload' ++ ops) x y z
+envSet (ICi ops x y z e) = ICi (envload' ++ ops) x y z
   where envload' :: [ICop]
         envload' =
           concat . map envloadgen' $
@@ -207,6 +210,7 @@ optoC (Assign2 a cd) =sentence $ addcall "ASSIGN2" [show $ a,
         datatype (CString _) = "2"
         datatype (CBool _) = "3"
         datatype (CExItem _) = "4"
+
 optoC (Push a b) =
   assignmentsentence
   (addcall "*" [addcall "(ptlong*)" [(show a) ++ "++"]])
@@ -217,9 +221,13 @@ optoC (Pop a b) =
   (show b)
   (addcall "(ptlong)" [addcall "(*)" [addcall "--" [show b]]])
 
-optoC (Call a) =
+optoC (Callc a (CExItem x)) =
 --  sentence $ addcall (addcall "" [addcall "((void*)())"  [show a]]) []
-  sentence $ addcall "CALL" [show a]
+  sentence $ addcall "CALL" [show a, x]
+
+optoC (Callb) =
+  sentence $ addcall "RETURN" []
+
 
 optoC (TestGo pred branch1 branch2) =
   ifsentence (show pred)
@@ -227,29 +235,28 @@ optoC (TestGo pred branch1 branch2) =
   (foldr (++)  (map optoC branch2) "")
 
 
-optoC (VarCatch r var cla) =
+optoC (VarCatch1 r var cla) =
   addcall "VARCATCH" [show r, show var, show cla]
 
 
-optoC (VarCatch' r x y cla) =
-  addcall "VARCATCH_" [show r, show x, show y, show cla]
+optoC (VarCatch2 r x y cla) =
+  addcall "VARCATCHREF" [show r, show x, show y, show cla]
 
 
-optoC (SetVar' x y r) =
-  addcall "SETVAR_" [show x, show y, show r]
+optoC (SetVar1 x y r) =
+  addcall "SETVAR" [show x, show y, show r]
 
-optoC (GetVar' x y r) =
-  addcall "GETVAR_" [show x, show y, show r]
 
-optoC (LookVar r b) =
-  addcall "LOOKVAR" [quotesentence . show $ r,
-                     show b]
-optoC (SetVar a r) =
-  addcall "SETVAR" [show a,
-                    quotesentence . show $ r]
-optoC (DefVar a r) =
-  addcall "SETVAR" [show a,
-                    quotesentence . show $ r]
+optoC (SetVar2 x y r) =
+  addcall "SETVARREF" [show x, show y, show r]
+
+
+optoC (GetVar1 x y r) =
+  addcall "GETVAR" [show x, show y, show r]
+
+
+optoC (GetVar2 x y r) =
+  addcall "GETVARREF" [show x, show y, show r]
 
 
 {-
@@ -262,7 +269,7 @@ optoC (SetLVec (CInt cd) r) =
   (addcall "*" [addcall "(ptlong*)" [offsetof "LexVec" cd]])
   (show r)
 -}
-linkagetoC (CExItem a,CLabel b) = icitoC b a
+linkagetoC (CExItem a,CLambda b) = icitoC b a
 linkagetoC (CExItem a,b) = declvar a $ show b
 
 {-
