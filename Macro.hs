@@ -1,7 +1,7 @@
-import Parsing
 module Macro (macroTransformer) where
+import Parsing2 
+import Data.List (foldl')
 
-module Macro(macroTransformer)
 type MacroT = SStruc -> (SStruc,Bool)
 
 macroTransformer :: SStruc -> SStruc
@@ -11,10 +11,12 @@ macroTransformer = falsethenend allT
         allT = makeallT allT'
         everywhereT :: MacroT -> MacroT
         everywhereT t = everywhereT'
-          where everywhereT' (SList x) =
-                  let res = map (everywhereT' `combineTs` t) x
-                  in (SList . concat $ map (\(x,_) -> x) res,
-                      foldl' or False $ map (\(_,x)->x) res)
+          where everywhereT' :: MacroT
+                everywhereT' (SList x) =
+                  let res :: [(SStruc,Bool)]
+                      res = map (everywhereT' `combineTs` t) x
+                  in (SList $ map (\(x,_) -> x) res,
+                      foldl' (||) False $ map snd res)
                 everywhereT' x = t x
         makeallT :: [MacroT] -> (MacroT)
         makeallT (x:y) = foldl' combineTs x y
@@ -41,7 +43,10 @@ quoteTransformer (SQuote (SList (x:[]))) =
            SQuote x,
            SQuote $ SString "()"]),True)
 
-quoteTransformer (SList ((SAtom "quote"):(SList x:y:z):[])) =
+quoteTransformer (SQuote (SNum x)) =
+  (SNum x,True)
+
+quoteTransformer (SList (((SAtom "quote"):(SList (x:y:z)):[]))) =
   ((SList [SAtom "cons",
            SQuote x,
            SQuote (SList (y:z))]),True)

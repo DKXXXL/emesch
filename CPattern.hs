@@ -1,7 +1,9 @@
+module CPattern where
 import Data.List (concat)
 
+
 addheader :: String -> String -> String
-addheader header = "#include \"" ++ header ++ "\"\r"
+addheader header = (("#include \"" ++ header ++ "\"\r") ++)
 
 
 addcall :: String -> [String] -> String
@@ -17,13 +19,13 @@ pointerassignmentsentence :: String -> String -> String
 pointerassignmentsentence to from = assignmentsentence ("*" ++ to) from
 
 staticsentence :: String -> String
-staticsentence = " static " ++
+staticsentence = (" static " ++)
 
 constsentence :: String -> String
-constsentence = " const " ++
+constsentence = (" const " ++)
 
-ptlongtype :: String ->
-ptlongtype = " ptlong " ++
+ptlongtype :: String -> String
+ptlongtype = (" ptlong " ++)
 
 sentence:: String -> String
 sentence = (++ ";")
@@ -32,7 +34,7 @@ cube :: String -> String
 cube x = ('{' : x) ++ "}" 
 
 quotesentence ::String -> String
-quotesentence = '&':
+quotesentence = ('&':)
 ifsentence :: String -> String -> String -> String
 ifsentence pred branch1 branch2 =
   "if" ++ (addcall "" [pred]) ++ (cube branch1) ++ "else" ++ (cube branch2)
@@ -41,7 +43,7 @@ declfunc :: String -> String -> [String] -> String
 declfunc funcname funcbody closurevar =
   (declcfunc (funcName funcname) funcbody) ++ 
   (declstruc funcname $ func' ++ closure') 
-  where funcName = "__FUNC__" ++
+  where funcName = ("__FUNC__" ++)
         func' =
           constsentence .
           staticsentence .
@@ -62,11 +64,11 @@ declarray name i =sentence $ ptlongtype $ name ++ "[" ++ (show i) ++ "]"
 
 declstruc :: String -> String -> String
 declstruc name content = sentence $ "Struct " ++ (nameStruct name) ++ "{" ++ content ++ "}" ++ name
-  where nameStruct = "__STRUCT__" ++
+  where nameStruct = ("__STRUCT__" ++)
 
         
 offsetof :: String -> Int -> String
 offsetof array i = array ++ ("[" ++ show i ++ "]")
 
 constarray :: [String] -> String
-constarray (val:vals) = "[" ++ (foldl (++","++) val vals) ++ "]"
+constarray (val:vals) = "[" ++ (foldl (\x y -> x ++ "," ++ y) val vals) ++ "]"

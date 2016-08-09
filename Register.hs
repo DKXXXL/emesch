@@ -1,4 +1,4 @@
-module Register(Register,ICop,Cdata) where
+module Register (Register(..), ICop(..), ICi(..), Cdata(..), nameGenerator') where
 
 type Address = Int
 
@@ -11,8 +11,16 @@ data Cdata =
   | CAtom String
   | CLambda ICi  -- Ops, Register and variable in use
   | CExItem String
-  deriving Show
   
+
+instance (Show Cdata) where
+  show (CString a) = "\"" ++ a ++ "\""
+--  show (CQuote a) = addcall "QUOTE" [show $ CString a]
+  show (CInt a) = show a
+  show (CBool a) = show a
+  show (CExItem a) = show a
+  show (CLambda a) = show a
+  show (CAtom a) = show a
 
 --data ICi =
 --  ICi {ops :: [ICop], using :: [Register], var :: [Cdata]}
@@ -44,13 +52,17 @@ data ICop =
   | CCall Register Cdata
   | Callb
   | VarCatch Register Cdata Cdata
-  | VarCatch' Register Cdata Cdata Cdata Cdata
+  | VarCatch1 Register Cdata Cdata Cdata Cdata
+  | VarCatch2 Register Cdata Cdata Cdata Cdata
   | TestGo Register [ICop] [ICop]
   | LookVar Register Cdata
   | SetVar Cdata Register
+  | GetVar Cdata Register
+  | SetVar1 Cdata Cdata Register
+  | GetVar1 Cdata Cdata Register
   | DefVar Cdata Register
-  | GetVar' Cdata Cdata Register
-  | SetVar' Cdata Cdata Register
+  | GetVar2 Cdata Cdata Register
+  | SetVar2 Cdata Cdata Register
   | Save Register
   | Load Register
   deriving Show
@@ -60,7 +72,7 @@ data Register =
   | Val     -- Var
   | Env     -- Envrionment Stack
   | Ret     -- Return Stack
-deriving Show
+  deriving Show
     
 
 nameGenerator' :: ICi -> String

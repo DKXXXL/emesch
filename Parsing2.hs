@@ -1,4 +1,4 @@
-module Parsing2 (parser) where
+module Parsing2 (parser, SStruc(..)) where
 
 
 import Text.ParserCombinators.ReadP
@@ -39,10 +39,9 @@ parserList = do
 
 parserQuote = do
   (char '\'') 
-  x <- parserList +++  parserAtom +++ parserNumber +++ parserString <++ parserInvalidAtom
+  x <- parserList <++ parserString <++ parserNumber <++ parserInvalidAtom
   return $ SQuote x
-  where parserInvalidAtom :: ReadP SStruc
-        parserInvalidAtom =
+  where parserInvalidAtom =
           (many1 $ symbol +++ letter +++ number) >>=
           \x -> return $ SAtom x
 
@@ -56,7 +55,9 @@ parserNumber = do
   x <- many1 $ number
   return . SNum $ read x
 
-parserExp = parserList +++ parserAtom +++ parserQuote +++ parserString +++ parserNumber
+parserExp = parserList <++ parserQuote <++ parserString <++ parserNumber <++ parserAtom
 
-parser :: String -> [(SStruc,String)]
-parser = readP_to_S parserList
+parser' :: String -> [(SStruc,String)]
+parser' = readP_to_S parserExp
+parser :: String -> SStruc
+parser = (\((x,y):z) -> x) . parser'

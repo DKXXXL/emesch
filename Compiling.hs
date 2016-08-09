@@ -1,11 +1,12 @@
-import Register
-import Internal
-import CPattern
+module Compiling (allcompile) where
 
+import Register
+import CPattern
+import Parsing2
 import Data.List (nub, concat, find)
 import Data.Char (toUpper)
 
-module Compiling (allcompile) where
+
 -------------------------------------------------------------------------------------
 -- 1. Cdata have a pointer long data ahead, because it has to store the class of data
 -------------------------------------------------------------------------------------
@@ -37,7 +38,7 @@ compile (SList ((SAtom "define"):(SAtom x):body:[])) =
    (ICi [DefVar (CAtom x) Val] [] [Val] [CAtom x] [])]
 
 
-compile (SList ((SAtom "lambda"):(SList arg):body))@all =
+compile all@(SList ((SAtom "lambda"):(SList arg):body)) =
   let lambdai' = acobC [compileLambdaEntrance arg,
                         compileBody body]
       lname = nameGenerator all
@@ -71,7 +72,7 @@ compile (SList ((SAtom "set!"):(SAtom var):val:[])) =
          ICi [(SetVar (CAtom var) Val)] [] [Val] [CAtom var] []]
 
 
-compile (SList ((SAtom "call/cc"):x:[]))@x' =
+compile x'@(SList ((SAtom "call/cc"):x:[])) =
   let name = nameGenerator x
   in (acobC [ ICi [Save Env Val,
                    DefVar (CAtom "__env") Val,
@@ -125,13 +126,13 @@ compile (SList (func:args)) =
 
 nameGenerator :: [SStruc] -> String
 nameGenerator = concat . map nameGenerator'
-where nameGenerator' :: SStruc -> String
-      nameGenerator' (SAtom x) = x
-      nameGenerator' (SString x) = x
-      nameGenerator' (SQuote x) = nameGenerator' x
-      nameGenerator' (SList l) = nameGenerator l
-      nameGenerator' (SBool x) = show x
-      nameGenerator' (SNum x) = show x
+  where nameGenerator' :: SStruc -> String
+        nameGenerator' (SAtom x) = x
+        nameGenerator' (SString x) = x
+        nameGenerator' (SQuote x) = nameGenerator' x
+        nameGenerator' (SList l) = nameGenerator l
+        nameGenerator' (SBool x) = show x
+        nameGenerator' (SNum x) = show x
 
 
 
@@ -146,11 +147,11 @@ envSet (ICi ops x y z e) = ICi (envload' ++ ops) x y z
           ["cons","car","cdr","quote","+","-","*","/"] 
         envloadgen' internalfunc = [Assign2 Val (CExItem $ envfuncalias internalfunc),
                                     DefVar (CAtom internalfunc) Val]
-        where envfuncalias "+" = "ADD"
-              envfuncalias "-" = "MINUS"
-              envfuncalias "*" = "MUTIPLY"
-              envfuncalias "/" = "DEVIDE"
-              envfuncalias = map . toUpper
+          where envfuncalias "+" = "ADD"
+                envfuncalias "-" = "MINUS"
+                envfuncalias "*" = "MUTIPLY"
+                envfuncalias "/" = "DEVIDE"
+                envfuncalias = map . toUpper
 
 
 ---------- TO C
@@ -169,7 +170,7 @@ allcompile opt =
   (map macroTransformer)
   where compileList = acobC . map compile
 
-
+{-
 instance (Show Cdata) where
   show (CString a) = "\"" ++ a ++ "\""
 --  show (CQuote a) = addcall "QUOTE" [show $ CString a]
@@ -180,7 +181,7 @@ instance (Show Cdata) where
 
   -- show (CLabel x) =  cube . concat . map optoC $ x
 
-
+-}
 
 
 icitoC :: ICi -> String -> String
