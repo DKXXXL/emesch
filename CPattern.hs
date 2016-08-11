@@ -57,7 +57,7 @@ declcfunc funcname funcbody = "int " ++ (addcall funcname []) ++ (cube funcbody)
 
 
 declvar :: String -> String -> String
-declvar name val =sentence $ ptlongtype $ name ++ "=" ++ val
+declvar name val = sentence $ ptlongtype $ name ++ "=" ++ val
 
 declarray :: String -> Int -> String
 declarray name i =sentence $ ptlongtype $ name ++ "[" ++ (show i) ++ "]"

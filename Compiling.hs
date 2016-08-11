@@ -16,12 +16,13 @@ import Data.Char (toUpper)
 ----------- To IR
 
 acobC :: [ICi] -> ICi
-acobC icis = ICi
-  (concat . map . ops $ icis)
-  (concat . map . links $ icis)
-  (nub . concat . map . using $ icis) 
-  (nub . concat . map . var $ icis) 
-
+acobC icis =
+  ICi
+  (concat . map ops $ icis)
+  (concat . map links $ icis) 
+  (nub . concat . map  using $ icis)
+  (nub . concat . map  var $ icis)
+  (nub . concat . map  ref $ icis)
 
 compile :: SStruc -> ICi
 compile (SString x) =ICi [Assign2 Val (CString x)] [] [Val] [] []
@@ -30,8 +31,8 @@ compile (SBool x) =ICi [Assign2 Val (CBool x)] [] [Val] [] []
 
 compile (SAtom x) =ICi [LookVar Val (CAtom x)] [] [Val] [CAtom x] []
 
-compile (SList ((SAtom "define"):(SList (funcName:args)):body:[])) =
-  compile (SList ((SAtom "define"):(funcName):(SList (SAtom "lambda"):(SList args):body)))
+compile (SList ((SAtom "define"):(SList (funcName:args)):body)) =
+  compile (SList [(SAtom "define"),(funcName),(SList ((SAtom "lambda"):(SList args):body))])
 
 
 compile (SList ((SAtom "define"):(SAtom x):body:[])) =
@@ -47,15 +48,15 @@ compile all@(SList ((SAtom "lambda"):(SList arg):body)) =
   in  ICi ((Assign3 Val (CExItem lname)) : varcatchLambda) 
       [(CExItem lname,CLambda lambdai')] [Val] [] []
   where compileBody = acobC . map compile
-        compileLambdaEntrance :: [SStruc] -> ICop
-        compileLambdaEntrance = concat . map compileLambdaEntranceArg . reverse
+        compileLambdaEntrance :: [SStruc] -> ICi
+        compileLambdaEntrance = acobC . map compileLambdaEntranceArg . reverse
           where compileLambdaEntranceArg (SAtom arg) =
-                  [(Pop Argl Val),
-                   (DefVar (CAtom arg) Val)]
+                  ICi [(Pop Argl Val),
+                       (DefVar (CAtom arg) Val)] [] [Argl,Val] [(CAtom arg)] []
 --        varcatchLambda :: [ICop]
 --        varcatchLambda = map (\x -> VarCatch Val x (CExItem lname)) $ map CAtom $ var lambdai'
         varcatchLambda = []
-compile (SList ((SAtom "if"):pred:branch1:branch2)) =
+compile (SList ((SAtom "if"):pred:branch1:branch2:[])) =
   let b1 = nameGenerator branch1
       b2 = nameGenerator branch2
   in acobC [(compile pred),
@@ -65,8 +66,8 @@ compile (SList ((SAtom "if"):pred:branch1:branch2)) =
                    Call Val] 
                   [Assign3 Val (CExItem b2),
                    Call Val])]
-            [(CExItem b1,CLambda $ compileList branch1)
-             (CExItem b2,Clambda $ compileList branch2)] [Val] [] []]
+            [(CExItem b1,CLambda $ compile branch1),
+             (CExItem b2,CLambda $ compile branch2)] [Val] [] []]
   where compileList = acobC . map compile
 
 compile (SList ((SAtom "set!"):(SAtom var):val:[])) =
@@ -97,8 +98,9 @@ compile x'@(SList ((SAtom "call/cc"):x:[])) =
 --                   Push Argl Val,
 --                   Pop Exp Val,
                 CCall Val]
-              [Exp,Val,Argl]
               []
+              [Exp,Val,Argl]
+              [] []
             ])
 
 
@@ -112,7 +114,7 @@ compile (SList (func:args)) =
                Call Val] [] [Exp,Val] [] [])]
   where compileArgs :: [SStruc] -> ICi
         compileArgs =
-          acobC . concat $
+          acobC . concat .
           map (\x -> [(compile x),
                       (ICi [Push Argl Val] [] [Argl,Val] [] [])])
 
@@ -126,13 +128,13 @@ compile (SList (func:args)) =
 
 
 
-nameGenerator :: [SStruc] -> String
-nameGenerator = concat . map nameGenerator'
+nameGenerator :: SStruc -> String
+nameGenerator = nameGenerator'
   where nameGenerator' :: SStruc -> String
         nameGenerator' (SAtom x) = x
         nameGenerator' (SString x) = x
         nameGenerator' (SQuote x) = nameGenerator' x
-        nameGenerator' (SList l) = nameGenerator l
+        nameGenerator' (SList l) = concat $ map nameGenerator' l
         nameGenerator' (SBool x) = show x
         nameGenerator' (SNum x) = show x
 
@@ -142,7 +144,7 @@ nameGenerator = concat . map nameGenerator'
 ------- Environment 
 
 envSet :: ICi -> ICi
-envSet (ICi ops x y z e) = ICi (envload' ++ ops) x y z
+envSet (ICi ops x y z e) = ICi (envload' ++ ops) x y z e
   where envload' :: [ICop]
         envload' =
           concat . map envloadgen' $
@@ -153,7 +155,7 @@ envSet (ICi ops x y z e) = ICi (envload' ++ ops) x y z
                 envfuncalias "-" = "MINUS"
                 envfuncalias "*" = "MUTIPLY"
                 envfuncalias "/" = "DEVIDE"
-                envfuncalias = map . toUpper
+                envfuncalias x = map toUpper x
 
 
 ---------- TO C
@@ -188,9 +190,9 @@ instance (Show Cdata) where
 
 icitoC :: ICi -> String -> String
 icitoC (ICi ops linkages regs vars refs) funcname =
-  (concat . map regtoC $ regs)
+  (concat . map regtoC $  regs)
   ++ (concat . map linkagetoC $ linkages)
-  ++ (declfun funcname (concat . map optoC $ ops) $ map show vars)
+  ++ (declfunc funcname (concat . map optoC $ ops) $ map show vars)
 
 
 
@@ -200,8 +202,8 @@ optoC :: ICop -> String
 
 optoC (Label a) = (show a) ++ ":"
 optoC (Goto a) = sentence $ "goto " ++ (show a) 
-optoC (Save r) = sentence $ addcall "SAVE" [show r]
-optoC (Load r) = sentence $ addcall "LOAD" [show r]
+optoC (Save r r') = sentence $ addcall "SAVE" [show r, show r']
+optoC (Load r r') = sentence $ addcall "LOAD" [show r, show r']
 
 --optoC (Run (CLabel x)) = concat . map optoC $ x
 optoC (Assign1 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
@@ -277,5 +279,7 @@ linkagetoC (CExItem a,b) = declvar a $ show b
 
 {-
 regtoC (LexVec i) = declarray "LexVec" i
-regtoC (x) = declvar x . show . CInt $ 0 
 -}
+
+regtoC (x) = declvar (show x) . show . CInt $ 0 
+

@@ -30,7 +30,7 @@ data ICi =
        links :: [(Cdata,Cdata)] ,
        using :: [Register] ,
        var :: [Cdata],
-       refvar ::[Cdata]}
+       ref ::[Cdata]}
   deriving (Show, Eq)
 -- operation is the operating list
 -- linkages are the external variable
