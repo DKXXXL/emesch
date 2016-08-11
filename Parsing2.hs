@@ -15,7 +15,7 @@ data SStruc =
 
 
 oneOf :: [Char] -> ReadP Char
-oneOf (x:y) = foldl' (\x y -> x +++ (char y)) (char x) y
+oneOf (x:y) = foldl' (\x y -> x <++ (char y)) (char x) y
 
 symbol = oneOf ",.;'[]-=<>?:\"{}|_+!@#$%^&*()~"
 letter = oneOf "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM"

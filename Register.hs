@@ -11,7 +11,7 @@ data Cdata =
   | CAtom String
   | CLambda ICi  -- Ops, Register and variable in use
   | CExItem String
-  
+  deriving Eq
 
 instance (Show Cdata) where
   show (CString a) = "\"" ++ a ++ "\""
@@ -31,7 +31,7 @@ data ICi =
        using :: [Register] ,
        var :: [Cdata],
        refvar ::[Cdata]}
-  deriving Show
+  deriving (Show, Eq)
 -- operation is the operating list
 -- linkages are the external variable
 -- using means the registers in use
@@ -49,11 +49,11 @@ data ICop =
   | Goto Cdata 
   | Call Register
   | Callc Register Cdata
-  | CCall Register Cdata
+  | CCall Register
   | Callb
   | VarCatch Register Cdata Cdata
-  | VarCatch1 Register Cdata Cdata Cdata Cdata
-  | VarCatch2 Register Cdata Cdata Cdata Cdata
+  | VarCatch1 Register Cdata Cdata Cdata
+  | VarCatch2 Register Cdata Cdata Cdata
   | TestGo Register [ICop] [ICop]
   | LookVar Register Cdata
   | SetVar Cdata Register
@@ -63,16 +63,16 @@ data ICop =
   | DefVar Cdata Register
   | GetVar2 Cdata Cdata Register
   | SetVar2 Cdata Cdata Register
-  | Save Register
-  | Load Register
-  deriving Show
+  | Save Register Register
+  | Load Register Register
+  deriving (Show, Eq)
 data Register =
   Exp
   | Argl    -- Pointer
   | Val     -- Var
   | Env     -- Envrionment Stack
   | Ret     -- Return Stack
-  deriving Show
+  deriving (Show, Eq)
     
 
 nameGenerator' :: ICi -> String

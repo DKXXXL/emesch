@@ -29,27 +29,33 @@ macroTransformer = falsethenend allT
           $ [quoteTransformer]
         
 quoteTransformer :: MacroT
+
+
+quoteTransformer (SQuote (SNum x)) =
+  (SNum x,True)
+
 quoteTransformer (SQuote (SAtom x)) =
   ((SList [SAtom "quote", SString x]),True)
 
 quoteTransformer (SQuote (SString x)) =
   ((SList [SAtom "quote", SString x]),True)
 
-quoteTransformer (SQuote (SList x)) =
-  ((SList [SAtom "quote",(SList x)]),True)
+
+quoteTransformer (SList (((SAtom "quote"):(SList (x:y:z)):[]))) =
+  ((SList [SAtom "cons",
+           SQuote x,
+           SQuote (SList (y:z))]),True)
 
 quoteTransformer (SQuote (SList (x:[]))) =
   ((SList [SAtom "cons",
            SQuote x,
            SQuote $ SString "()"]),True)
 
-quoteTransformer (SQuote (SNum x)) =
-  (SNum x,True)
-
-quoteTransformer (SList (((SAtom "quote"):(SList (x:y:z)):[]))) =
+quoteTransformer (SQuote (SList (x:y:z))) =
   ((SList [SAtom "cons",
            SQuote x,
-           SQuote (SList (y:z))]),True)
+           SQuote (SList (y:z))]), True)
+
 
 quoteTransformer x = (x,False)
 

@@ -1,5 +1,7 @@
 module Compiling (allcompile) where
 
+import Macro
+import NextCompiling
 import Register
 import CPattern
 import Parsing2
@@ -185,7 +187,7 @@ instance (Show Cdata) where
 
 
 icitoC :: ICi -> String -> String
-icitoC (ICi ops linkages regs vars) funcname =
+icitoC (ICi ops linkages regs vars refs) funcname =
   (concat . map regtoC $ regs)
   ++ (concat . map linkagetoC $ linkages)
   ++ (declfun funcname (concat . map optoC $ ops) $ map show vars)
@@ -232,12 +234,12 @@ optoC (Callb) =
 
 optoC (TestGo pred branch1 branch2) =
   ifsentence (show pred)
-  (foldr (++)  (map optoC branch1) "")
-  (foldr (++)  (map optoC branch2) "")
+  (foldr (++) ""  (map optoC branch1))
+  (foldr (++) ""  (map optoC branch2))
 
 
-optoC (VarCatch1 r var cla) =
-  addcall "VARCATCH" [show r, show var, show cla]
+optoC (VarCatch1 r x y cla) =
+  addcall "VARCATCH" [show r, show x, show y, show cla]
 
 
 optoC (VarCatch2 r x y cla) =
