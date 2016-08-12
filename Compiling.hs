@@ -161,7 +161,7 @@ envSet (ICi ops x y z e) = ICi (envload' ++ ops) x y z e
 ---------- TO C
 
 
-allcompile :: (ICi -> ICi) -> [SStruc] -> String
+allcompile :: (ICi -> ICi) -> SStruc -> String
 allcompile opt =
   addheader "runtime.h" .
   addheader "emeschlib.h" .
@@ -170,8 +170,8 @@ allcompile opt =
   opt.
   necessaryTransform .
   envSet .
-  compileList .
-  (map macroTransformer)
+  compile .
+  macroTransformer
   where compileList = acobC . map compile
 
 {-
