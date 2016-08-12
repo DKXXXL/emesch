@@ -1,4 +1,4 @@
-module Emesch(compilestest', compiles, CompileArg(..)) where
+module Emesch(compilestest', compiles', compiles, CompileArg(..)) where
 
 import Register
 import Parsing2 (parser)
