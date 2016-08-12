@@ -2,13 +2,15 @@ module Main where
 import Emesch (compiles', compiles, CompileArg(..))
 
 import System.Environment (getArgs)
-
+import System.IO (stdin, stdout, hPutStr, hGetContents)
 
 argHandle :: (String, [String]) -> CompileArg
 argHandle ("-O", x) = Opt x
-argHandle ("-o", x) = Output  $ concat x
-argHandle ("-c", x) = Target x
+
+-- argHandle ("-o", x) = Output  $ concat x
+-- argHandle ("-c", x) = Target x
 argHandle (_ , x) = Failure
+
 argsTovargs :: [String] -> [(String,[String])]
 argsTovargs x = argsTovargs' x [] 
   where argsTovargs' :: [String] -> [(String,[String])] -> [(String,[String])]
@@ -21,5 +23,6 @@ argsTovargs x = argsTovargs' x []
 main :: IO ()
 main = do
   args <- getArgs
-  return . compiles' . (map argHandle) . argsTovargs $ args
-  return ()
+  input <- hGetContents stdin 
+  let output =  compiles'  ((map argHandle) . argsTovargs $ args) input
+  hPutStr stdout output
