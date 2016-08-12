@@ -20,7 +20,7 @@ foldstate f (x:l) o = case f (Els x o) of (Els x' o') ->
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 ----------------------These are necessary Transformation---------------------------------
-necessaryTransform =callcTrs . lexTrs . callccTrs
+necessaryTransform = delDup . callcTrs . lexTrs . callccTrs
 
 
 callccTrs :: ICi -> ICi
@@ -194,3 +194,99 @@ lexAddr (ICi ops links b vars thisref) =
                                  else 1 + (find' as y)
                 find' [] _ = 0
  
+-----------------------
+--VarName transform--
+
+iflegal :: Cdata -> Bool
+iflegal = \_ -> True
+
+legalfy :: Cdata -> Cdata
+legalfy = \x -> x
+
+transform :: Cdata -> Cdata
+transform (CExItem l) = CExItem $ transform' l
+  where transform' :: String -> String
+        transform' (x:y) = y ++ [x,x]
+
+delDup :: ICi -> ICi
+delDup x = case delDup'' $ Els x [CExItem "main"] of Els ret _ -> ret 
+  where delDup' :: Els ICi [Cdata] -> Els ICi [Cdata]
+        delDup' (Els i@(ICi a links b c d) table) =
+          let ifcover' :: [Cdata] -> [Cdata] -> [Cdata]
+              ifcover' x y = filter (\x -> (not $ iflegal x) ||
+                                           (foldl' (||) False $ map (\y -> (x == y)) y)) x
+              covertable = ifcover' (map fst links) table
+          in let legalcover :: [Cdata] -> [Cdata]
+                 legalcover org = let org' = ifcover' org table
+                                  in if org' == []
+                                     then org
+                                     else legalcover (map (legalfy . transform) org)
+             in let newnames = legalcover covertable
+                in Els (changename i (zip covertable newnames)) (table ++ newnames)
+          where changename :: ICi -> [(Cdata,Cdata)] -> ICi
+                changename (ICi ops links rs vars refs) table =
+                  ICi
+                  (map changenameop ops)
+                  (map changenamelink links)
+                  rs
+                  (map changenamevar vars)
+                  (map changenamevar refs)
+                  where transform''' :: Cdata -> Cdata
+                        transform''' v = snd . head $ filter (\(x,_) -> x == v) table 
+                        changenameop :: ICop -> ICop
+                        changenameop (Assign2 r v) = Assign2 r (transform''' v)
+                        changenameop (Assign3 r v) = Assign3 r (transform''' v)
+                        changenameop (Label v) = Label (transform''' v)
+                        changenameop (Goto v)  = Goto (transform''' v)
+                        changenameop (Callc r v) = Callc r (transform''' v)
+                        changenameop (VarCatch r v1 v2) =
+                          VarCatch r (transform''' v1) (transform''' v2)
+                        changenameop (VarCatch1 r v1 v2 v3) =
+                          VarCatch1 r (transform''' v1) (transform''' v2) (transform''' v3)
+                        changenameop (VarCatch2 r v1 v2 v3) =
+                          VarCatch2 r (transform''' v1) (transform''' v2) (transform''' v3)
+                        changenameop (LookVar r v) = LookVar r (transform''' v)
+                        changenameop (SetVar v1 r) =
+                          SetVar  (transform''' v1)  r
+                        changenameop (SetVar1 v1 v r) =
+                          SetVar1  (transform''' v1) (transform''' v) r
+                        changenameop (GetVar v1 r) =
+                          GetVar  (transform''' v1)  r
+                        changenameop (SetVar2 v1 v r) =
+                          SetVar2  (transform''' v1) (transform''' v) r
+                        changenameop (GetVar1 v1 v r) =
+                          GetVar1  (transform''' v1) (transform''' v) r
+                        changenameop (GetVar2 v1 v r) =
+                          GetVar2  (transform''' v1) (transform''' v) r
+                        changenameop (DefVar v r) = DefVar  (transform''' v) r
+                        changenamelink (v1,v2) = (transform''' v1, v2)
+                        changenamevar v1 = transform''' v1
+        delDup'' :: Els ICi [Cdata] -> Els ICi [Cdata]
+        delDup'' (Els  (all@(ICi a links b c d)) state) =
+          let Els links' state' =
+                foldl'
+                (\(Els l table) (y1,CLambda y2) ->
+                  case delDup'' (Els y2 table) of (Els y2' table') ->
+                                                    Els ((y1,CLambda y2'):l) table')
+                (Els [] state) links 
+          in delDup' $ Els (ICi a links' b c d) state'
+             
+
+
+{-
+treeToline :: [(Cdata,Cdata)] -> [(Cdata,Cdata)]
+treeToline x =
+  (treeToline .
+   concat $
+   map (\(_,y) -> case y of (CLambda $ ICi _ linkages' _ _ _) -> linkages'
+                            y' -> []) x) ++
+  (map (\(k,y) -> case y of (CLambda $ ICi a _ b c d) -> (k, (CLambda $ ICi a [] b c d))
+                            y' -> (k,y)) x)
+  -- Width Prior Explore
+  
+delDup' :: [(Cdata,Cdata)] -> [(Cdata,Cdata)]
+delDup' = nubBy (\(a,b) (c,d) -> (a == c) && (b == d))
+delDup'' :: [(Cdata,Cdata)] -> [(Cdata,Cdata)]
+delDup''' :: Els [(Cdata,Cdata)] Int-> [(Cdata,Cdata)]
+
+-}
