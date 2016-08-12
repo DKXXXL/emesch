@@ -1,7 +1,8 @@
 module NextCompiling(necessaryTransform) where
 
 import Register
-import Data.List (foldl' ,nub, last, init, length)
+import Data.List (elem ,foldl' ,nub, last, init, length)
+import Data.Char (chr, ord)
 
 {-
 withAll :: (ICi -> ICi) -> (ICi -> ICi)
@@ -16,7 +17,7 @@ foldstate :: ((Els a state) -> (Els [a] state)) -> [a] -> state -> (Els [a] stat
 foldstate f (x:l) o = case f (Els x o) of (Els x' o') ->
                                             case foldstate f l o' of (Els l' o'') ->
                                                                        (Els (x'++l') o'')
-
+foldstate f [] o = Els [] o
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 ----------------------These are necessary Transformation---------------------------------
@@ -198,11 +199,39 @@ lexAddr (ICi ops links b vars thisref) =
 --VarName transform--
 
 iflegal :: Cdata -> Bool
-iflegal = \_ -> True
-
+iflegal (CExItem x@(x':xs)) =
+  (not ( x `haveOneOf` unlegal )) &&
+  (not ( x' `elem` "1234567890"))
+  where haveOneOf ::(Eq a) => [a] -> [a] -> Bool
+        haveOneOf target list =
+          foldl' (||) False . map (\x -> x `elem` target) $ nub list
+        unlegal :: String
+        unlegal = " <>?,./:\";'{}[]-=+~!@#$%^&*()`"
+        
 legalfy :: Cdata -> Cdata
-legalfy = \x -> x
-
+legalfy (CExItem x) = CExItem $ legalfy' x
+  where legalfy' :: String -> String
+        legalfy' x@(x':xs')
+          | lx >= 16 = legalfy' $ shorten x
+          | lx == 0  = legalfy' $ "a"
+          | x' `elem` "1234567890" = legalfy' ('A':x) 
+          | otherwise = map mapping x
+          where lx = length x
+                shorten :: String -> String
+                shorten =
+                  let k = (\x -> case x of (x':y:z) -> ((x'+y):(k z))
+                                           z -> z)
+                  in map ( chr .  ((`div` 2) :: Int -> Int)) .
+                     k.
+                     map ord
+                mapping :: Char -> Char -- 256 -> 65 ~90 97~122 48 ~57 
+                mapping = mapping' . (`mod` 62) . ord
+                  where mapping' :: Int -> Char
+                        mapping' x
+                          | x <= 9 = chr $ 48 + x
+                          | x <= 35 = chr $ 55 + x
+                          | x <= 61 = chr $ 61 + x
+                          | otherwise = 'A'
 transform :: Cdata -> Cdata
 transform (CExItem l) = CExItem $ transform' l
   where transform' :: String -> String
@@ -232,7 +261,9 @@ delDup x = case delDup'' $ Els x [CExItem "main"] of Els ret _ -> ret
                   (map changenamevar vars)
                   (map changenamevar refs)
                   where transform''' :: Cdata -> Cdata
-                        transform''' v = snd . head $ filter (\(x,_) -> x == v) table 
+                        transform''' v =
+                          case filter (\(x,_) -> x == v) table of (y:l) -> snd y
+                                                                  [] -> v
                         changenameop :: ICop -> ICop
                         changenameop (Assign2 r v) = Assign2 r (transform''' v)
                         changenameop (Assign3 r v) = Assign3 r (transform''' v)
@@ -259,6 +290,7 @@ delDup x = case delDup'' $ Els x [CExItem "main"] of Els ret _ -> ret
                         changenameop (GetVar2 v1 v r) =
                           GetVar2  (transform''' v1) (transform''' v) r
                         changenameop (DefVar v r) = DefVar  (transform''' v) r
+                        changenameop x = x
                         changenamelink (v1,v2) = (transform''' v1, v2)
                         changenamevar v1 = transform''' v1
         delDup'' :: Els ICi [Cdata] -> Els ICi [Cdata]
@@ -268,7 +300,8 @@ delDup x = case delDup'' $ Els x [CExItem "main"] of Els ret _ -> ret
                 (\(Els l table) (y1,CLambda y2) ->
                   case delDup'' (Els y2 table) of (Els y2' table') ->
                                                     Els ((y1,CLambda y2'):l) table')
-                (Els [] state) links 
+                (Els [] state)
+                (links :: [(Cdata,Cdata)]) 
           in delDup' $ Els (ICi a links' b c d) state'
              
 

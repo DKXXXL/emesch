@@ -1,8 +1,8 @@
-module Emesch(compiles', compiles, CompileArg(..)) where
+module Emesch(compilestest', compiles, CompileArg(..)) where
 
 import Register
 import Parsing2 (parser)
-import Compiling (allcompile)
+import Compiling (allcompile,compiletest)
 import Opts(opts, optSI)
 
 data CompileArg =
@@ -12,6 +12,9 @@ data CompileArg =
   | Output String
 compiles' :: [CompileArg] -> String -> String
 compiles' x y = concat $ compiles x [y]
+
+compilestest' :: [CompileArg] -> String -> String
+compilestest' x y = compiletest (\x -> x) . parser $ y
 {-
 compiles :: [CompileArg] -> [String]
 compiles args =
@@ -36,3 +39,5 @@ compiles args filestreams =
         
 --        gettarget :: [CompileArg] -> [String]
 --        gettarget = concat . map (\x -> case x of (Target x') -> x'
+
+

@@ -1,4 +1,4 @@
-module Compiling (allcompile) where
+module Compiling (allcompile, compiletest) where
 
 import Macro
 import NextCompiling
@@ -148,7 +148,7 @@ envSet (ICi ops x y z e) = ICi (envload' ++ ops) x y z e
   where envload' :: [ICop]
         envload' =
           concat . map envloadgen' $
-          ["cons","car","cdr","quote","+","-","*","/"] 
+          ["cons","car","cdr","quote","+","-","*","/","begin"] 
         envloadgen' internalfunc = [Assign2 Val (CExItem $ envfuncalias internalfunc),
                                     DefVar (CAtom internalfunc) Val]
           where envfuncalias "+" = "ADD"
@@ -173,6 +173,13 @@ allcompile opt =
   compile .
   macroTransformer
   where compileList = acobC . map compile
+
+compiletest opt = 
+  show.
+  necessaryTransform .
+  envSet .
+  compile .
+  macroTransformer
 
 {-
 instance (Show Cdata) where
@@ -208,14 +215,14 @@ optoC (Load r r') = sentence $ addcall "LOAD" [show r, show r']
 --optoC (Run (CLabel x)) = concat . map optoC $ x
 optoC (Assign1 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
 --optoC (Assign2 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
-optoC (Assign2 a cd) =sentence $ addcall "ASSIGN2" [show $ a,
-                                                    datatype cd,
-                                                    show cd]
+optoC (Assign2 a cd) =sentence $ addcall ("ASSIGN2" ++ (datatype cd)) [show $ a,
+                                                                       show cd]
   where datatype (CInt _) = "1"
         datatype (CString _) = "2"
         datatype (CBool _) = "3"
         datatype (CExItem _) = "4"
-
+        datatype x = "0"
+        
 optoC (Push a b) =
   assignmentsentence
   (addcall "*" [addcall "(ptlong*)" [(show a) ++ "++"]])
@@ -281,5 +288,8 @@ linkagetoC (CExItem a,b) = declvar a $ show b
 regtoC (LexVec i) = declarray "LexVec" i
 -}
 
-regtoC (x) = declvar (show x) . show . CInt $ 0 
+regSize :: Int
+regSize = 128
+
+regtoC (x) = declarray (show x) regSize 
 
