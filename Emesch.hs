@@ -13,7 +13,7 @@ data CompileArg =
 compiles' :: [CompileArg] -> String -> String
 compiles' x y = concat $ compiles x [y]
 
-compilestest' :: [CompileArg] -> String -> String
+compilestest' :: [CompileArg] -> String -> ICi
 compilestest' x y = compiletest (\x -> x) . parser $ y
 {-
 compiles :: [CompileArg] -> [String]

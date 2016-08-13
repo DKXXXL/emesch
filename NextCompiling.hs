@@ -21,7 +21,7 @@ foldstate f [] o = Els [] o
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 ----------------------These are necessary Transformation---------------------------------
-necessaryTransform = delDup . callcTrs . lexTrs . callccTrs
+necessaryTransform = lexAddr . delDup . callcTrs . lexTrs . callccTrs
 
 
 callccTrs :: ICi -> ICi

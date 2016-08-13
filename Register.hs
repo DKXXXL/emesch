@@ -14,13 +14,13 @@ data Cdata =
   deriving Eq
 
 instance (Show Cdata) where
-  show (CString a) = "\"" ++ a ++ "\""
+  show (CString a) = show a
 --  show (CQuote a) = addcall "QUOTE" [show $ CString a]
   show (CInt a) = show a
   show (CBool a) = show a
-  show (CExItem a) = show a
+  show (CExItem a) = a
   show (CLambda a) = show a
-  show (CAtom a) = show a
+  show (CAtom a) = a
 
 --data ICi =
 --  ICi {ops :: [ICop], using :: [Register], var :: [Cdata]}

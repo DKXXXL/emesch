@@ -175,7 +175,6 @@ allcompile opt =
   where compileList (SList x) = acobC . map compile $ x
    --     compileList x = compile x
 compiletest opt = 
-  show.
   necessaryTransform .
   envSet .
   compileList .
@@ -234,7 +233,7 @@ optoC (Goto a) = sentence $ "goto " ++ (show a)
 
 optoC (Callc a (CExItem x)) =
   --  sentence $ addcall (addcall "" [addcall "((void*)())"  [show a]]) []
-  sentence $ addcall "CALL" [show a, x]
+  sentence $ addcall "CALL" [show a, funcName x]
 
 optoC (Callb) =
   sentence $ addcall "RETURN" []

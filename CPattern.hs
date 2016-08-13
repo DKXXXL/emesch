@@ -41,19 +41,21 @@ ifsentence :: String -> String -> String -> String
 ifsentence pred branch1 branch2 =
   "if" ++ (addcall "" [pred]) ++ (cube branch1) ++ "else" ++ (cube branch2)
 
+funcName = ("__FUNC__" ++)
+
+
 declfunc :: String -> String -> [String] -> String
 declfunc funcname funcbody closurevar =
   (declcfunc (funcName funcname) funcbody) ++ 
   (declstruc funcname $ func' ++ closure') 
-  where funcName = ("__FUNC__" ++)
-        func' =
+  where func' =
           constsentence .
           staticsentence .
           ptlongtype $ assignmentsentence "func" $ funcName funcname
         closure' =
           strucvars closurevar
 declcfunc :: String -> String -> String
-declcfunc funcname funcbody = "int " ++ (addcall funcname []) ++ (cube funcbody) 
+declcfunc funcname funcbody = "void " ++ (addcall funcname []) ++ (cube funcbody) 
 
 
 declvar :: String -> String -> String
