@@ -1,4 +1,4 @@
-module Register (Register(..), ICop(..), ICi(..), Cdata(..), nameGenerator') where
+module Register (internalFunc ,Register(..), ICop(..), ICi(..), Cdata(..), nameGenerator') where
 
 type Address = Int
 
@@ -77,3 +77,6 @@ data Register =
 
 nameGenerator' :: ICi -> String
 nameGenerator'  = show
+
+internalFunc :: [String]
+internalFunc = ["cons","car","cdr","quote","+","-","*","/","begin"] 

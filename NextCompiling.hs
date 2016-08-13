@@ -21,11 +21,8 @@ foldstate f [] o = Els [] o
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 ----------------------These are necessary Transformation---------------------------------
-necessaryTransform = lexAddr . delDup . callcTrs . lexTrs . callccTrs
+necessaryTransform = (\x->x) -- .  delDup . callcTrs . callfunOpt . lexTrs . callccOptim
 
-
-callccTrs :: ICi -> ICi
-callccTrs = callfunOpt . callccOptim
 
 -----------------------------------------------------------------------------------------
 ---------CallccOpt :

@@ -107,7 +107,7 @@ compile x'@(SList ((SAtom "call/cc"):x:[])) =
 
 
 compile (SList (func:args)) =
-  acobC [(compile func),
+  acobC [(compile $ possibleinFunc func),
          (ICi [Push Exp Val] [] [Exp,Val] [] []),
          (compileArgs args),
          (ICi [Pop Exp Val,
@@ -118,7 +118,8 @@ compile (SList (func:args)) =
           map (\x -> [(compile x),
                       (ICi [Push Argl Val] [] [Argl,Val] [] [])])
 
-
+        possibleinFunc (SAtom x) = case x `elem` internalFunc of True -> SAtom $ envfuncalias x
+                                                                 False -> SAtom x
 
 
 
@@ -147,15 +148,15 @@ envSet :: ICi -> ICi
 envSet (ICi ops x y z e) = ICi (envload' ++ ops) x y z e
   where envload' :: [ICop]
         envload' =
-          concat . map envloadgen' $
-          ["cons","car","cdr","quote","+","-","*","/","begin"] 
+          concat . map envloadgen' $ internalFunc
         envloadgen' internalfunc = [Assign2 Val (CExItem $ envfuncalias internalfunc),
-                                    DefVar (CAtom internalfunc) Val]
-          where envfuncalias "+" = "ADD"
-                envfuncalias "-" = "MINUS"
-                envfuncalias "*" = "MUTIPLY"
-                envfuncalias "/" = "DEVIDE"
-                envfuncalias x = map toUpper x
+                                    DefVar (CAtom $ envfuncalias internalfunc) Val] 
+envfuncalias "+" = "ADD"
+envfuncalias "-" = "MINUS"
+envfuncalias "*" = "MUTIPLY"
+envfuncalias "/" = "DEVIDE"
+envfuncalias x = map toUpper x
+
 
 
 ---------- TO C
