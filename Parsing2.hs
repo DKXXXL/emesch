@@ -21,6 +21,7 @@ symbol = oneOf ",.;'[]-=<>?:\"{}|_+!@#$%^&*()~"
 letter = oneOf "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM"
 number = oneOf "1234567890"
 spaces = many1 . oneOf $ " \t\r\n"
+optionalspaces = many . oneOf $ " \t\r\n"
 
 parserAtom = do
   x <- (symbol +++ letter)
@@ -31,14 +32,15 @@ parserAtom = do
 
 parserList = do
   (char '(')
-  (optional spaces)
-  x <- (sepBy1 parserExp spaces)
-  (optional spaces)
+  optionalspaces
+  x <- (sepBy parserExp spaces)
+  optionalspaces
   (char ')')
   return $ SList x
 
 parserQuote = do
-  (char '\'') 
+  (char '\'')
+  optionalspaces
   x <- parserList <++ parserString <++ parserNumber <++ parserInvalidAtom
   return $ SQuote x
   where parserInvalidAtom =
@@ -58,6 +60,14 @@ parserNumber = do
 parserExp = parserList <++ parserQuote <++ parserString <++ parserNumber <++ parserAtom
 
 parser' :: String -> [(SStruc,String)]
-parser' = readP_to_S parserExp
+parser' = readP_to_S (optionalspaces >> parserExp) 
 parser :: String -> SStruc
-parser = (\((x,y):z) -> x) . parser'
+parser = (\((x,y):z) -> x) . parser' . preparserToparenthesis
+
+preparserToparenthesis :: String -> String
+preparserToparenthesis =
+  concat . map (\x -> case x of '(' -> " ( "
+                                ')' -> " ) "
+                                x' -> [x'])
+ 
+                                

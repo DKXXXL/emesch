@@ -46,6 +46,9 @@ quoteTransformer (SList (((SAtom "quote"):(SList (x:y:z)):[]))) =
            SQuote x,
            SQuote (SList (y:z))]),True)
 
+quoteTransformer (SQuote (SList [])) =
+  (SQuote $ SString "()", True)
+
 quoteTransformer (SQuote (SList (x:[]))) =
   ((SList [SAtom "cons",
            SQuote x,

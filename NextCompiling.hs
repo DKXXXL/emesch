@@ -172,7 +172,7 @@ lexAddr (ICi ops links b vars thisref) =
             (VarCatch1 r (CInt a) (CInt b) y)
             (\_ -> VarCatch2 r (CInt a) (CInt b) y))
 
-        lexAddr' ((org@(DefVar x r))) frames frames'=
+        lexAddr' ((org@(DefVar x r))) frames _ =
           case searchFrames frames x of Nothing -> ((org))
                                         (Just (a,b)) -> ((SetVar1 (CInt a) (CInt b) r))
 
@@ -261,9 +261,10 @@ delDup x = case delDup'' $ Els x [CExItem "main"] of Els ret _ -> ret
                   (map changenamevar vars)
                   (map changenamevar refs)
                   where transform''' :: Cdata -> Cdata
-                        transform''' v =
+                        transform''' v@(CExItem _) =
                           case filter (\(x,_) -> x == v) table of (y:l) -> snd y
                                                                   [] -> v
+                        transform''' v = v
                         changenameop :: ICop -> ICop
                         changenameop (Assign2 r v) = Assign2 r (transform''' v)
                         changenameop (Assign3 r v) = Assign3 r (transform''' v)

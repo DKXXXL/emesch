@@ -170,17 +170,17 @@ allcompile opt =
   opt.
   necessaryTransform .
   envSet .
-  compile .
+  compileList .
   macroTransformer
-  where compileList = acobC . map compile
-
+  where compileList (SList x) = acobC . map compile $ x
+   --     compileList x = compile x
 compiletest opt = 
   show.
   necessaryTransform .
   envSet .
-  compile .
+  compileList .
   macroTransformer
-
+  where compileList (SList x) = acobC . map compile $ x          
 {-
 instance (Show Cdata) where
   show (CString a) = "\"" ++ a ++ "\""
@@ -206,12 +206,6 @@ icitoC (ICi ops linkages regs vars refs) funcname =
 
 optoC :: ICop -> String
 
-
-optoC (Label a) = (show a) ++ ":"
-optoC (Goto a) = sentence $ "goto " ++ (show a) 
-optoC (Save r r') = sentence $ addcall "SAVE" [show r, show r']
-optoC (Load r r') = sentence $ addcall "LOAD" [show r, show r']
-
 --optoC (Run (CLabel x)) = concat . map optoC $ x
 optoC (Assign1 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
 --optoC (Assign2 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
@@ -233,12 +227,25 @@ optoC (Pop a b) =
   (show b)
   (addcall "(ptlong)" [addcall "(*)" [addcall "--" [show b]]])
 
+optoC (Label a) = (show a) ++ ":"
+optoC (Goto a) = sentence $ "goto " ++ (show a) 
+
+
+
 optoC (Callc a (CExItem x)) =
---  sentence $ addcall (addcall "" [addcall "((void*)())"  [show a]]) []
+  --  sentence $ addcall (addcall "" [addcall "((void*)())"  [show a]]) []
   sentence $ addcall "CALL" [show a, x]
 
 optoC (Callb) =
   sentence $ addcall "RETURN" []
+
+
+optoC (VarCatch1 r x y cla) =
+  sentence $ addcall "VARCATCH" [show r, show x, show y, show cla]
+
+
+optoC (VarCatch2 r x y cla) =
+  sentence $ addcall "VARCATCHREF" [show r, show x, show y, show cla]
 
 
 optoC (TestGo pred branch1 branch2) =
@@ -247,28 +254,23 @@ optoC (TestGo pred branch1 branch2) =
   (foldr (++) ""  (map optoC branch2))
 
 
-optoC (VarCatch1 r x y cla) =
-  addcall "VARCATCH" [show r, show x, show y, show cla]
-
-
-optoC (VarCatch2 r x y cla) =
-  addcall "VARCATCHREF" [show r, show x, show y, show cla]
-
-
 optoC (SetVar1 x y r) =
-  addcall "SETVAR" [show x, show y, show r]
+  sentence $ addcall "SETVAR" [show x, show y, show r]
 
 
 optoC (SetVar2 x y r) =
-  addcall "SETVARREF" [show x, show y, show r]
+  sentence $ addcall "SETVARREF" [show x, show y, show r]
 
 
 optoC (GetVar1 x y r) =
-  addcall "GETVAR" [show x, show y, show r]
+  sentence $ addcall "GETVAR" [show x, show y, show r]
 
 
 optoC (GetVar2 x y r) =
-  addcall "GETVARREF" [show x, show y, show r]
+  sentence $ addcall "GETVARREF" [show x, show y, show r]
+
+optoC (Save r r') = sentence $ addcall "SAVE" [show r, show r']
+optoC (Load r r') = sentence $ addcall "LOAD" [show r, show r']
 
 
 {-
