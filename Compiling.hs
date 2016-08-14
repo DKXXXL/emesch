@@ -171,16 +171,16 @@ allcompile opt =
   opt.
   necessaryTransform .
   envSet .
-  compileList .
+  compile .
   macroTransformer
-  where compileList (SList x) = acobC . map compile $ x
+--  where compileList (SList x) = acobC . map compile $ x
    --     compileList x = compile x
 compiletest opt = 
   necessaryTransform .
   envSet .
-  compileList .
+  compile .
   macroTransformer
-  where compileList (SList x) = acobC . map compile $ x          
+--  where compileList (SList x) = acobC . map compile $ x          
 {-
 instance (Show Cdata) where
   show (CString a) = "\"" ++ a ++ "\""

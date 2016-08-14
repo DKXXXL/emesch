@@ -26,7 +26,7 @@ macroTransformer = falsethenend allT
                                             True -> case t1 x' of (x'',_) -> (x'', True))
         allT' =
           map everywhereT
-          $ [quoteTransformer]
+          $ [quoteTransformer,beginTransformer]
         
 quoteTransformer :: MacroT
 
@@ -62,3 +62,7 @@ quoteTransformer (SQuote (SList (x:y:z))) =
 
 quoteTransformer x = (x,False)
 
+beginTransformer (SList ((SAtom "begin"):x)) =
+  (SList [SList ((SAtom "lambda"):(SList []):x)] ,True)
+
+beginTransformer x = (x,False)

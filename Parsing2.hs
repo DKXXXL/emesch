@@ -32,9 +32,9 @@ parserAtom = do
 
 parserList = do
   (char '(')
-  optionalspaces
+  spaces
   x <- (sepBy parserExp spaces)
-  optionalspaces
+  spaces
   (char ')')
   return $ SList x
 
@@ -62,7 +62,7 @@ parserExp = parserList <++ parserQuote <++ parserString <++ parserNumber <++ par
 parser' :: String -> [(SStruc,String)]
 parser' = readP_to_S (optionalspaces >> parserExp) 
 parser :: String -> SStruc
-parser = (\((x,y):z) -> x) . parser' . (\x -> preparserToparenthesis x "")
+parser = fst. head . parser' . (\x -> preparserToparenthesis x "")
 
 preparserToparenthesis :: String -> String -> String
 preparserToparenthesis ('(':xs) = cobs (\x -> " ( " ++ x) $ (preparserToparenthesis xs)
