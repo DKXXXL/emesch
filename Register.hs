@@ -72,8 +72,15 @@ data Register =
   | Val     -- Var
   | Env     -- Envrionment Stack
   | Ret     -- Return Stack
-  deriving (Show, Eq)
-    
+  | CUSTOM__ String 
+  deriving (Eq)
+instance (Show Register) where
+  show (CUSTOM__ x) = x
+  show Exp = "Exp"
+  show Argl = "Argl"
+  show Val = "Val"
+  show Env = "Env"
+  show Ret = "Ret"
 
 nameGenerator' :: ICi -> String
 nameGenerator'  = show

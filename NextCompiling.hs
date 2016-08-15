@@ -121,7 +121,7 @@ lambdaCatching (ICi ops links using allvars vars) =
                                (\(Just (_,x)) -> case x of (CLambda (ICi _ _ _ _ vars)) -> vars) $
                                find'' links (\(x,y) -> x == l)))
                              where varCatchLambda :: [Cdata] -> [ICop]
-                                   varCatchLambda = map (\x -> VarCatch Val x l)
+                                   varCatchLambda = map (\x -> VarCatch r x l)
                    varCatch' x = [x]
                    find'' :: [a] -> (a -> Bool) -> Maybe a
                    find'' (x:y) f = if f x

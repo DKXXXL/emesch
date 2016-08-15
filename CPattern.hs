@@ -17,7 +17,7 @@ assignmentsentence :: String -> String -> String
 assignmentsentence to from = to ++ "=" ++ from ++ ";"
 
 pointerassignmentsentence :: String -> String -> String
-pointerassignmentsentence to from = assignmentsentence ("*" ++ to) from
+pointerassignmentsentence to from = assignmentsentence ('*' : to) from
 
 staticsentence :: String -> String
 staticsentence = (" static " ++)
@@ -40,12 +40,15 @@ cube x = ('{' : x) ++ "}"
 quotesentence ::String -> String
 quotesentence = ('&':)
 
+unquote :: String -> String
+unquote = ('*':)
 ifsentence :: String -> String -> String -> String
 ifsentence pred branch1 branch2 =
   "if" ++ (addcall "" [pred]) ++ (cube branch1) ++ "else" ++ (cube branch2)
 
 funcName = ("__FUNC__" ++)
 instName = ("__INSTA__" ++)
+struName = ("__STRUCT__" ++)
 
 declfunc :: String -> String -> [String] -> String
 declfunc funcname funcbody closurevar =
@@ -72,8 +75,8 @@ declarray name i =sentence $ staticsentence $ ptlongtype $ name ++ "[" ++ (show 
 declstruc :: String -> String -> String
 declstruc name content =
   sentence $ "struct " ++ (nameStruct name) ++ "{" ++ content ++ "}" ++ (nameInstance name)
-  where nameStruct = ("__STRUCT__" ++)
-        nameInstance = ("__INSTA___" ++)
+  where nameStruct = struName
+        nameInstance = instName
 
         
 offsetof :: String -> Int -> String

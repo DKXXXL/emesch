@@ -213,7 +213,8 @@ icitoC (ICi ops linkages regs vars refs) funcname =
 optoC :: ICop -> String
 
 --optoC (Run (CLabel x)) = concat . map optoC $ x
-optoC (Assign1 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
+optoC (Assign1 a b) =
+  assignmentsentence (unquote $ show a) (unquote $ addcall "(ptlong*)" [show b])
 --optoC (Assign2 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
 optoC (Assign2 a cd) =sentence $ addcall ("ASSIGN2" ++ (datatype cd)) [show $ a,
                                                                        show cd]
@@ -225,13 +226,13 @@ optoC (Assign2 a cd) =sentence $ addcall ("ASSIGN2" ++ (datatype cd)) [show $ a,
         
 optoC (Push a b) =
   assignmentsentence
-  (addcall "*" [addcall "(ptlong*)" [(show a) ++ "++"]])
+  (addcall "*" [addcall "(ptlong*)" [addcall "++" [show a]]])
   (addcall "(ptlong)" [(show b)])
 
 optoC (Pop a b) =
   assignmentsentence
-  (show b)
-  (addcall "(ptlong)" [addcall "(*)" [addcall "--" [show b]]])
+  (addcall "*" [show b])
+  (addcall "(ptlong)" [addcall "(*)" [addcall "" [(show a) ++ "--"]]])
 
 optoC (Label a) = (show a) ++ ":"
 optoC (Goto a) = sentence $ "goto " ++ (show a) 
@@ -240,18 +241,26 @@ optoC (Goto a) = sentence $ "goto " ++ (show a)
 
 optoC (Callc a (CExItem x)) =
   --  sentence $ addcall (addcall "" [addcall "((void*)())"  [show a]]) []
-  sentence $ addcall "CALL" [show a, instName x]
-
+--  sentence $ addcall "CALL" [show a, instName x]
+  (concat $ map optoC [Push Env a,
+                       Assign1 Val (CUSTOM__ $ quotesentence $ instName x),
+                       Push Ret Val]) ++
+  (sentence $ addcall (addcall "((void*)())" [unquote $ (addcall "(ptlong**)" [show a])]) [])
+   
+   
 optoC (Callb) =
-  sentence $ addcall "RETURN" []
-
+--  sentence $ addcall "RETURN" []
+   (sentence $ addcall "--" [show Env]) ++
+   (sentence $ addcall (addcall "((void*)())" [addcall "" [(show Ret)++ "--"]]) [])
+   
+    
 
 optoC (VarCatch1 r x y name cla) =
-  sentence $ addcall "VARCATCH" [show r, show x, show y, show name, show cla]
+  sentence $ addcall "VARCATCH" [show r, show x, show y, show name,struName $ show cla]
 
 
 optoC (VarCatch2 r x y name cla) =
-  sentence $ addcall "VARCATCHREF" [show r, show x, show y, show name, show cla]
+  sentence $ addcall "VARCATCHREF" [show r, show x, show y, show name, struName $ show cla]
 
 
 optoC (TestGo pred branch1 branch2) =
