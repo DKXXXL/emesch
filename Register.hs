@@ -52,8 +52,8 @@ data ICop =
   | CCall Register
   | Callb
   | VarCatch Register Cdata Cdata
-  | VarCatch1 Register Cdata Cdata Cdata
-  | VarCatch2 Register Cdata Cdata Cdata
+  | VarCatch1 Register Cdata Cdata Cdata Cdata
+  | VarCatch2 Register Cdata Cdata Cdata Cdata
   | TestGo Register [ICop] [ICop]
   | LookVar Register Cdata
   | SetVar Cdata Register

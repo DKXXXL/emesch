@@ -28,6 +28,9 @@ constsentence = (" const " ++)
 ptlongtype :: String -> String
 ptlongtype = (" ptlong " ++)
 
+pointertype :: (String -> String) -> (String -> String)
+pointertype f = ((f "*") ++)
+
 sentence:: String -> String
 sentence = (++ ";")
 
@@ -42,7 +45,7 @@ ifsentence pred branch1 branch2 =
   "if" ++ (addcall "" [pred]) ++ (cube branch1) ++ "else" ++ (cube branch2)
 
 funcName = ("__FUNC__" ++)
-
+instName = ("__INSTA__" ++)
 
 declfunc :: String -> String -> [String] -> String
 declfunc funcname funcbody closurevar =
@@ -64,11 +67,11 @@ declvar name val = sentence $ ptlongtype $ name ++ "=" ++ val
 
 
 declarray :: String -> Int -> String
-declarray name i =sentence $ ptlongtype $ name ++ "[" ++ (show i) ++ "]"
+declarray name i =sentence $ staticsentence $ ptlongtype $ name ++ "[" ++ (show i) ++ "]"
 
 declstruc :: String -> String -> String
 declstruc name content =
-  sentence $ "Struct " ++ (nameStruct name) ++ "{" ++ content ++ "}" ++ (nameInstance name)
+  sentence $ "struct " ++ (nameStruct name) ++ "{" ++ content ++ "}" ++ (nameInstance name)
   where nameStruct = ("__STRUCT__" ++)
         nameInstance = ("__INSTA___" ++)
 

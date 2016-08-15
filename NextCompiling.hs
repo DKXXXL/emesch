@@ -21,7 +21,7 @@ foldstate f [] o = Els [] o
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 ----------------------These are necessary Transformation---------------------------------
-necessaryTransform = (\x->x) -- .  delDup . callcTrs . callfunOpt . lexTrs . callccOptim
+necessaryTransform = regOptim . delDup . callcTrs . callfunOpt . lexTrs . callccOptim 
 
 
 -----------------------------------------------------------------------------------------
@@ -131,7 +131,7 @@ lambdaCatching (ICi ops links using allvars vars) =
 
 lambdaVarMonoize :: ICi -> ICi
 lambdaVarMonoize (ICi a links r vars ref) =
-  ICi a (withAll lambdaVarMonoize links) r (monoize vars) ref
+  ICi a (withAll lambdaVarMonoize links) r (monoize vars) (monoize ref)
   where monoize = nub
 
 lexAddr :: ICi -> ICi
@@ -166,8 +166,8 @@ lexAddr (ICi ops links b vars thisref) =
           (\(a,b) ->
             maybeIF
             (searchFrames frames' x)
-            (VarCatch1 r (CInt a) (CInt b) y)
-            (\_ -> VarCatch2 r (CInt a) (CInt b) y))
+            (VarCatch1 r (CInt a) (CInt b) x y)
+            (\_ -> VarCatch2 r (CInt a) (CInt b) x y))
 
         lexAddr' ((org@(DefVar x r))) frames _ =
           case searchFrames frames x of Nothing -> ((org))
@@ -270,10 +270,12 @@ delDup x = case delDup'' $ Els x [CExItem "main"] of Els ret _ -> ret
                         changenameop (Callc r v) = Callc r (transform''' v)
                         changenameop (VarCatch r v1 v2) =
                           VarCatch r (transform''' v1) (transform''' v2)
-                        changenameop (VarCatch1 r v1 v2 v3) =
-                          VarCatch1 r (transform''' v1) (transform''' v2) (transform''' v3)
-                        changenameop (VarCatch2 r v1 v2 v3) =
-                          VarCatch2 r (transform''' v1) (transform''' v2) (transform''' v3)
+                        changenameop (VarCatch1 r v1 v2 name v3) =
+                          VarCatch1 r (transform''' v1) (transform''' v2)
+                          (transform''' name) (transform''' v3)
+                        changenameop (VarCatch2 r v1 v2 name v3) =
+                          VarCatch2 r (transform''' v1) (transform''' v2)
+                          (transform''' name) (transform''' v3)
                         changenameop (LookVar r v) = LookVar r (transform''' v)
                         changenameop (SetVar v1 r) =
                           SetVar  (transform''' v1)  r
@@ -302,23 +304,12 @@ delDup x = case delDup'' $ Els x [CExItem "main"] of Els ret _ -> ret
                 (links :: [(Cdata,Cdata)]) 
           in delDup' $ Els (ICi a links' b c d) state'
              
-
-
-{-
-treeToline :: [(Cdata,Cdata)] -> [(Cdata,Cdata)]
-treeToline x =
-  (treeToline .
-   concat $
-   map (\(_,y) -> case y of (CLambda $ ICi _ linkages' _ _ _) -> linkages'
-                            y' -> []) x) ++
-  (map (\(k,y) -> case y of (CLambda $ ICi a _ b c d) -> (k, (CLambda $ ICi a [] b c d))
-                            y' -> (k,y)) x)
-  -- Width Prior Explore
-  
-delDup' :: [(Cdata,Cdata)] -> [(Cdata,Cdata)]
-delDup' = nubBy (\(a,b) (c,d) -> (a == c) && (b == d))
-delDup'' :: [(Cdata,Cdata)] -> [(Cdata,Cdata)]
-delDup''' :: Els [(Cdata,Cdata)] Int-> [(Cdata,Cdata)]
-
--}
-
+regOptim :: ICi -> ICi
+regOptim all =
+  case cleanAllrs all of (ICi a l _ b c) -> ICi a l (getAllrs $ all) b c 
+  where getAllrs :: ICi -> [Register]
+        getAllrs = getAllrs' . CLambda
+          where getAllrs' (CLambda (ICi a l r b c)) = r ++ (concat $ map (getAllrs' . snd) l)
+                getAllrs' x = []
+        cleanAllrs :: ICi -> ICi
+        cleanAllrs (ICi a l _ b c) = ICi a (withAll cleanAllrs l) [] b c

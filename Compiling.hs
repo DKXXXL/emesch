@@ -1,4 +1,7 @@
-module Compiling (allcompile, compiletest) where
+module Compiling (
+  allcompile
+--  ,compiletest
+  ) where
 
 import Macro
 import NextCompiling
@@ -46,7 +49,7 @@ compile all@(SList ((SAtom "lambda"):(SList arg):body)) =
                         compileBody body]
       lname = nameGenerator all
   in  ICi ((Assign3 Val (CExItem lname)) : varcatchLambda) 
-      [(CExItem lname,CLambda lambdai')] [Val] [] []
+      [(CExItem lname,CLambda lambdai')] ([Val]) [] []
   where compileBody = acobC . map compile
         compileLambdaEntrance :: [SStruc] -> ICi
         compileLambdaEntrance = acobC . map compileLambdaEntranceArg . reverse
@@ -120,7 +123,7 @@ compile (SList (func:args)) =
 
         possibleinFunc (SAtom x) = case x `elem` internalFunc of True -> SAtom $ envfuncalias x
                                                                  False -> SAtom x
-
+        
 
 
 
@@ -145,7 +148,8 @@ nameGenerator = nameGenerator'
 ------- Environment 
 
 envSet :: ICi -> ICi
-envSet (ICi ops x y z e) = ICi (envload' ++ ops) x y z e
+envSet (ICi ops x y z e) =
+  ICi (envload' ++ ops) x y (z ++ (map (CAtom . envfuncalias) internalFunc)) e
   where envload' :: [ICop]
         envload' =
           concat . map envloadgen' $ internalFunc
@@ -175,11 +179,13 @@ allcompile opt =
   macroTransformer
 --  where compileList (SList x) = acobC . map compile $ x
    --     compileList x = compile x
+{-
 compiletest opt = 
   necessaryTransform .
   envSet .
   compile .
   macroTransformer
+-}
 --  where compileList (SList x) = acobC . map compile $ x          
 {-
 instance (Show Cdata) where
@@ -234,18 +240,18 @@ optoC (Goto a) = sentence $ "goto " ++ (show a)
 
 optoC (Callc a (CExItem x)) =
   --  sentence $ addcall (addcall "" [addcall "((void*)())"  [show a]]) []
-  sentence $ addcall "CALL" [show a, funcName x]
+  sentence $ addcall "CALL" [show a, instName x]
 
 optoC (Callb) =
   sentence $ addcall "RETURN" []
 
 
-optoC (VarCatch1 r x y cla) =
-  sentence $ addcall "VARCATCH" [show r, show x, show y, show cla]
+optoC (VarCatch1 r x y name cla) =
+  sentence $ addcall "VARCATCH" [show r, show x, show y, show name, show cla]
 
 
-optoC (VarCatch2 r x y cla) =
-  sentence $ addcall "VARCATCHREF" [show r, show x, show y, show cla]
+optoC (VarCatch2 r x y name cla) =
+  sentence $ addcall "VARCATCHREF" [show r, show x, show y, show name, show cla]
 
 
 optoC (TestGo pred branch1 branch2) =
@@ -293,5 +299,7 @@ regtoC (LexVec i) = declarray "LexVec" i
 regSize :: Int
 regSize = 128
 
-regtoC (x) = declarray (show x) regSize 
-
+regtoC (x) =
+  (declarray (tr $ show x) regSize) ++
+  (assignmentsentence (staticsentence $ pointertype ptlongtype $ show x) (tr $ show x))
+  where tr = ('b':)

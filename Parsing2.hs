@@ -15,17 +15,35 @@ data SStruc =
 
 
 oneOf :: [Char] -> ReadP Char
-oneOf (x:y) = foldl' (\x y -> x <++ (char y)) (char x) y
+oneOf y = satisfy (\x -> x `elem` y) 
 
-symbol = oneOf ",.;'[]-=<>?:\"{}|_+!@#$%^&*()~"
-letter = oneOf "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM"
-number = oneOf "1234567890"
-spaces = many1 . oneOf $ " \t\r\n"
-optionalspaces = many . oneOf $ " \t\r\n"
+oneOf' :: [Char] -> ReadP [Char]
+oneOf' y = munch (\x -> x `elem` y)
+
+notOf :: [Char] -> ReadP Char
+notOf y = satisfy (\x -> not (x `elem` y))
+
+notOf' :: [Char] -> ReadP [Char]
+notOf' y = munch (\x -> not (x `elem` y))
+
+
+symbol'' = ",.;'[]-=<>?:\"{}|_+!@#$%^&*()~"
+letter'' = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM"
+number'' = "1234567890"
+spaces'' = " \t\r\n"
+numberandspaces'' = "1234567890 \t\r\n"
+symbolandletter'' = ",.;'[]-=<>?:\"{}|_+!@#$%^&*()~"
+
+symbol = oneOf symbol''
+letter = oneOf letter''
+number = oneOf number''
+
+spaces = many1 . oneOf $ spaces''
+optionalspaces = many . oneOf $ spaces''
 
 parserAtom = do
-  x <- (symbol <++ letter)
-  y <- (many $ (symbol <++ letter <++ number))
+  x <- (oneOf $ symbol'' ++ letter'')
+  y <- (oneOf' $ symbol'' ++ letter'' ++ number'')
   case (x:y) of "#t" -> return $ SBool True
                 "#f" -> return $ SBool False
                 q -> return $ SAtom q

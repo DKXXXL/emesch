@@ -1,8 +1,13 @@
-module Emesch(compilestest', compiles', compiles, CompileArg(..)) where
+module Emesch(
+  compiles
+--  , compilestest'
+  , compiles'
+  ,CompileArg(..)
+  ) where
 
 import Register
-import Parsing2 (parser)
-import Compiling (allcompile,compiletest)
+import Parsing2
+import Compiling 
 import Opts(opts, optSI)
 
 data CompileArg =
@@ -13,9 +18,10 @@ data CompileArg =
 compiles' :: [CompileArg] -> String -> String
 compiles' x y = concat $ compiles x [y]
 
+{-
 compilestest' :: [CompileArg] -> String -> ICi
 compilestest' x y = compiletest (\x -> x) . parser $ y
-{-
+
 compiles :: [CompileArg] -> [String]
 compiles args =
   map (allcompile (getopt args)  . parser) $
