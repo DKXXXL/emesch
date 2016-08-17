@@ -7,7 +7,7 @@ enum bool {False,True};
 
 enum __type 
   {
-    Cint,
+    CInt,
     CString,
     CQuote,
     CBool,
@@ -154,6 +154,24 @@ static long pt_m = 0;
   memcpy(b##to, &((*(__obji**)from)->content) ,(*(__obji**)from)->size); \
   to = b##to + (*(__obji**)from)->size;
 
+void* newObj(long size)
+  {
+    if(size + pt_m + sizeof(__obji) > ACTUALPOOLSIZE)		
+      {						
+	__gc();
+	if(size + pt_m + sizeof(__obji) > ACTUALPOOLSIZE)
+	  {EXITREPORT("Out of memory.");}
+      }
+    //*_register = (void*)&__mempool[pt_m];					
+    ((__obji*)&(__mempool[pt_m]))->_t = type;				
+    ((__obji*)&(__mempool[pt_m]))->_copied = 0;				
+    ((__obji*)&(__mempool[pt_m]))->_size = size;			
+    //((__obji*)&(__mempool[pt_m]))->content = (void*)&(__mempool[pt_m+sizeof(__obji)]); \
+    //memcpy(&(((__obji*)&(__mempool[pt_m]))->content),&obj,size);	
+    void* ret = &(__mempool[pt_m]);
+    pt_m = ASSIGNNECEP(obj);
+    return ret;
+  }
 #define MAX_REGISTER_NUMBER 16
 
 const static ptlong* ___registers[MAX_REGISTER_NUMBER] = {0};
@@ -173,7 +191,7 @@ void __dealwith(const ptlong* regbase,ptlong* regp)
 	      __copyobj(__getobjiaddr(regp),&(__newmempool[new_pt]));
 	      __getobjiaddr(regp) -> _copied =  &(__newmempool[new_pt]);
 	      new_pt += __getobjiaddr(regp)->size + sizeof(*__getobjiaddr);
-	  switch(__getobjiaddr(regp)->type)
+	  switch(__getobjiaddr(regp)->_t)
 	    {
 	    case CLambda:
 	      __dealwith(((ptlong*)(__getobjiaddr(regp)->content))+1,
@@ -210,7 +228,7 @@ void __relink(const ptlong* regbase,ptlong* regp)
 	  __getobjiaddr(regp) = __getobjiaddr(regp)->_copied;
 	}
 
-      switch(__getobjiaddr(regp)->type)
+      switch(__getobjiaddr(regp)->_t)
 	{
 	case CLambda:
 	  __relink(((ptlong*)(__getobjiaddr(regp)->content))+1,
