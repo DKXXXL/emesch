@@ -21,7 +21,7 @@ With 'Emeschc', use standard input('stdin') and standard output, to input source
 
 (So, it only support single file right now.)
 
-The Output c code will need the head file "emeschlib.h" "runtime.h".
+The Output c code will need the head file "emeschlib.h" "runtime.h"(which I use "typeof" keyword, not standard c keyword).
 
 Use c compilers to them. BETTER USE -O3!
 
