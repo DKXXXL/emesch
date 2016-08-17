@@ -1,6 +1,6 @@
 module Emesch(
   compiles
---  , compilestest'
+  , compilestest'
   , compiles'
   ,CompileArg(..)
   ) where
@@ -18,10 +18,11 @@ data CompileArg =
 compiles' :: [CompileArg] -> String -> String
 compiles' x y = concat $ compiles x [y]
 
-{-
-compilestest' :: [CompileArg] -> String -> ICi
+
+--compilestest' :: [CompileArg] -> String -> ICi
 compilestest' x y = compiletest (\x -> x) . parser $ y
 
+{-
 compiles :: [CompileArg] -> [String]
 compiles args =
   map (allcompile (getopt args)  . parser) $

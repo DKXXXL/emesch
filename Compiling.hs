@@ -1,6 +1,6 @@
 module Compiling (
   allcompile
---  ,compiletest
+  ,compiletest
   ) where
 
 import Macro
@@ -32,7 +32,11 @@ compile (SString x) =ICi [Assign2 Val (CString x)] [] [Val] [] []
 compile (SNum x) =ICi [Assign2 Val (CInt x)] [] [Val] [] []
 compile (SBool x) =ICi [Assign2 Val (CBool x)] [] [Val] [] []
 
-compile (SAtom x) =ICi [LookVar Val (CAtom x)] [] [Val] [CAtom x] []
+compile (SAtom x) =
+  case x `elem` internalFunc of True ->
+                                  ICi [Assign2 Val (CExItem. envfuncalias $ x)] [] [Val] [] [] 
+                                False ->
+                                  ICi [LookVar Val (CAtom x)] [] [Val] [CAtom x] []
 
 compile (SList ((SAtom "define"):(SList (funcName:args)):body)) =
   compile (SList [(SAtom "define"),(funcName),(SList ((SAtom "lambda"):(SList args):body))])
@@ -110,7 +114,7 @@ compile x'@(SList ((SAtom "call/cc"):x:[])) =
 
 
 compile (SList (func:args)) =
-  acobC [(compile $ possibleinFunc func),
+  acobC [(compile func),
          (ICi [Push Exp Val] [] [Exp,Val] [] []),
          (compileArgs args),
          (ICi [Pop Exp Val,
@@ -121,15 +125,7 @@ compile (SList (func:args)) =
           map (\x -> [(compile x),
                       (ICi [Push Argl Val] [] [Argl,Val] [] [])])
 
-        possibleinFunc (SAtom x) = case x `elem` internalFunc of True -> SAtom $ envfuncalias x
-                                                                 False -> SAtom x
-        
-
-
-
 --compile' :: (SStruc,(Int,Int)) -> (ICi,(Int,Int))
-
-
 
 
 nameGenerator :: SStruc -> String
@@ -148,35 +144,42 @@ nameGenerator = nameGenerator'
 ------- Environment 
 
 envSet :: ICi -> ICi
-envSet (ICi ops x y z e) =
-  ICi (envload' ++ ops) x y (z ++ (map (CAtom . envfuncalias) internalFunc)) e
+envSet (all@(ICi ops x y z e)) = all
+{-  ICi (envload' ++ ops) x y (z ++ (map (CAtom . envfuncalias) internalFunc)) e
   where envload' :: [ICop]
         envload' =
           concat . map envloadgen' $ internalFunc
         envloadgen' internalfunc = [Assign2 Val (CExItem $ envfuncalias internalfunc),
                                     DefVar (CAtom $ envfuncalias internalfunc) Val] 
-envfuncalias "+" = "ADD"
-envfuncalias "-" = "MINUS"
-envfuncalias "*" = "MUTIPLY"
-envfuncalias "/" = "DEVIDE"
-envfuncalias x = map toUpper x
-
+-}
 
 
 ---------- TO C
 
 
 allcompile :: (ICi -> ICi) -> SStruc -> String
-allcompile opt =
-  addheader "runtime.h" .
-  addheader "emeschlib.h" .
-  linkagetoC .
-  (\x ->(CExItem "main",CLambda x)) .
-  opt.
+allcompile opt input =
+  let semiout =
+        opt.
+        necessaryTransform .
+--        envSet .
+        compile .
+        macroTransformer $ input
+  in let linkform =
+             linkagetoC .
+             (\x ->(CExItem "main",CLambda x)) $ semiout
+         regsform = regstoC . using $ semiout
+     in regsform ++
+        (addheader "runtime.h" $ linkform)
+compiletest opt = 
+--  (\x -> icitoC x "a").
   necessaryTransform .
-  envSet .
+--  envSet .
   compile .
   macroTransformer
+
+
+--         addheader "emeschlib.h" $ linkform)
 --  where compileList (SList x) = acobC . map compile $ x
    --     compileList x = compile x
 {-
@@ -201,11 +204,12 @@ instance (Show Cdata) where
 -}
 
 
+
 icitoC :: ICi -> String -> String
 icitoC (ICi ops linkages regs vars refs) funcname =
-  (concat . map regtoC $  regs)
-  ++ (concat . map linkagetoC $ linkages)
-  ++ (declfunc funcname (concat . map optoC $ ops) $ map show vars)
+--  (concat . map regtoC $  regs) ++
+  (concat . map linkagetoC $ linkages) ++
+  (declfunc funcname (concat . map optoC $ ops) $ map show vars)
 
 
 
@@ -214,20 +218,26 @@ optoC :: ICop -> String
 
 --optoC (Run (CLabel x)) = concat . map optoC $ x
 optoC (Assign1 a b) =
-  assignmentsentence (unquote $ show a) (unquote $ addcall "(ptlong*)" [show b])
+  assignmentsentence (unquote $ show a) (unquote $ show b)
 --optoC (Assign2 a b) = assignmentsentence (show a) (addcall "(ptlong)" [show b])
-optoC (Assign2 a cd) =sentence $ addcall ("ASSIGN2" ++ (datatype cd)) [show $ a,
-                                                                       show cd]
+optoC (Assign2 a cd) =
+  case cd of (CExItem _) ->
+               sentence $ addcall ("ASSIGN2" ++ (datatype cd)) [show $ a,
+                                                                instName $ show cd]
+             x ->
+               sentence $ addcall ("ASSIGN2" ++ (datatype cd)) [show $ a,
+                                                                show cd]
   where datatype (CInt _) = "1"
         datatype (CString _) = "2"
         datatype (CBool _) = "3"
         datatype (CExItem _) = "4"
+        datatype (CExtern _) = "5"
         datatype x = "0"
         
 optoC (Push a b) =
   assignmentsentence
   (addcall "*" [addcall "(ptlong*)" [addcall "++" [show a]]])
-  (addcall "(ptlong)" [(show b)])
+  (addcall "*(ptlong*)" [(show b)])
 
 optoC (Pop a b) =
   assignmentsentence
@@ -243,24 +253,34 @@ optoC (Callc a (CExItem x)) =
   --  sentence $ addcall (addcall "" [addcall "((void*)())"  [show a]]) []
 --  sentence $ addcall "CALL" [show a, instName x]
   (concat $ map optoC [Push Env a,
-                       Assign1 Val (CUSTOM__ $ quotesentence $ instName x),
-                       Push Ret Val]) ++
-  (sentence $ addcall (addcall "((void*)())" [unquote $ (addcall "(ptlong**)" [show a])]) [])
-   
+                       Push Exp a,
+                       Assign2 Val (CExtern $ funcName x),
+                       Push Ret Val,
+                       Pop Exp a]) ++
+  (addcall "CALL" [show a])
    
 optoC (Callb) =
 --  sentence $ addcall "RETURN" []
    (sentence $ addcall "--" [show Env]) ++
    (sentence $ addcall (addcall "((void*)())" [addcall "" [(show Ret)++ "--"]]) [])
    
-    
+
+
 
 optoC (VarCatch1 r x y name cla) =
-  sentence $ addcall "VARCATCH" [show r, show x, show y, show name,struName $ show cla]
+  sentence $ addcall "VARCATCH" [show r,
+                                 show x,
+                                 show y,
+                                 show name,
+                                 (struName $ show cla)]
 
 
 optoC (VarCatch2 r x y name cla) =
-  sentence $ addcall "VARCATCHREF" [show r, show x, show y, show name, struName $ show cla]
+  sentence $ addcall "VARCATCHREF" [show r,
+                                    show x,
+                                    show y,
+                                    show name,
+                                    (struName $ show cla)]
 
 
 optoC (TestGo pred branch1 branch2) =
@@ -299,7 +319,7 @@ optoC (SetLVec (CInt cd) r) =
   (show r)
 -}
 linkagetoC (CExItem a,CLambda b) = icitoC b a
-linkagetoC (CExItem a,b) = declvar a $ show b
+--linkagetoC (CExItem a,b) = declvar a $ show b
 
 {-
 regtoC (LexVec i) = declarray "LexVec" i
@@ -308,7 +328,15 @@ regtoC (LexVec i) = declarray "LexVec" i
 regSize :: Int
 regSize = 128
 
+
 regtoC (x) =
   (declarray (tr $ show x) regSize) ++
-  (assignmentsentence (staticsentence $ pointertype ptlongtype $ show x) (tr $ show x))
+  (assignmentsentence
+   (staticsentence $ pointertype ptlongtype $ show x) (tr $ show x))
   where tr = ('b':)
+
+regstoC :: [Register] -> String
+regstoC (x) =
+  (concat $ map regtoC x) ++
+  (registerregister $ map show x)
+   

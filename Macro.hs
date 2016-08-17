@@ -10,12 +10,12 @@ macroTransformer = falsethenend allT
                                            (x', True) -> falsethenend t x'
         allT = makeallT allT'
         everywhereT :: MacroT -> MacroT
-        everywhereT t = everywhereT'
+        everywhereT t = everywhereT' `combineTs` t
           where everywhereT' :: MacroT
                 everywhereT' (SList x) =
                   let res :: [(SStruc,Bool)]
                       res = map (everywhereT' `combineTs` t) x
-                  in (SList $ map (\(x,_) -> x) res,
+                  in (SList $ map fst res,
                       foldl' (||) False $ map snd res)
                 everywhereT' x = t x
         makeallT :: [MacroT] -> (MacroT)
@@ -26,8 +26,8 @@ macroTransformer = falsethenend allT
                                             True -> case t1 x' of (x'',_) -> (x'', True))
         allT' =
           map everywhereT
-          $ [quoteTransformer,beginTransformer]
-        
+          --          $ [quoteTransformer,beginTransformer]
+          $[beginTransformer,quoteTransformer]
 quoteTransformer :: MacroT
 
 

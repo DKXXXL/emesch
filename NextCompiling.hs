@@ -21,7 +21,13 @@ foldstate f [] o = Els [] o
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 ----------------------These are necessary Transformation---------------------------------
-necessaryTransform = regOptim . delDup . callcTrs . callfunOpt . lexTrs . callccOptim 
+necessaryTransform =
+  regOptim .
+  delDup .
+  callcTrs .
+  callfunOpt .
+  lexTrs .
+  callccOptim 
 
 
 -----------------------------------------------------------------------------------------
@@ -93,7 +99,10 @@ callcTrs (ICi ops links b c d) =
 
 
 lexTrs :: ICi -> ICi
-lexTrs = lexAddr . lambdaCatching . lambdaVarMonoize
+lexTrs =
+  lexAddr .
+  lambdaCatching .
+  lambdaVarMonoize
 
 --------------------------------------------------------------------------------
 ----LexOpt :
@@ -102,15 +111,15 @@ lambdaCatching (ICi ops links using allvars vars) =
   let links' = withAll lambdaCatching links
   in varCatch . catchedVar $ ICi ops links' using allvars vars
      where catchedVar :: ICi -> ICi
-           catchedVar (ICi ops a b c vars) = ICi ops a b c (catchedVar' ops)
+           catchedVar (ICi ops a b c vars) = ICi ops a b c (nub $ catchedVar' ops)
              where catchedVar' = foldr delundef [] 
                      where delundef :: ICop -> [Cdata] -> [Cdata]
                            delundef (SetVar x _) xs = x:xs
                            delundef (LookVar _ x) xs = x:xs
                            delundef (VarCatch _ x _) xs = x:xs
-                           delundef (DefVar x _) xs = filter (not . (==x)) xs
+                           delundef (DefVar x _) xs = filter (/=x) xs
                            delundef _ xs = xs
-
+---This function "catchedVar" has problem
            varCatch :: ICi -> ICi
            varCatch (ICi ops links b c d) =  ICi (concat $ map varCatch' ops) links b c d
              where varCatch' :: ICop -> [ICop]
@@ -118,7 +127,8 @@ lambdaCatching (ICi ops links using allvars vars) =
                      where varcatchLambda =
                              ((Assign2 r l):
                               (varCatchLambda $
-                               (\(Just (_,x)) -> case x of (CLambda (ICi _ _ _ _ vars)) -> vars) $
+                               (\(Just (_,x)) -> case x of (CLambda (ICi _ _ _ _ vars))
+                                                             -> vars) $
                                find'' links (\(x,y) -> x == l)))
                              where varCatchLambda :: [Cdata] -> [ICop]
                                    varCatchLambda = map (\x -> VarCatch r x l)
@@ -131,67 +141,78 @@ lambdaCatching (ICi ops links using allvars vars) =
 
 lambdaVarMonoize :: ICi -> ICi
 lambdaVarMonoize (ICi a links r vars ref) =
-  ICi a (withAll lambdaVarMonoize links) r (monoize vars) (monoize ref)
+  ICi a (withAll lambdaVarMonoize links) r (monoize vars) ref
   where monoize = nub
 
 lexAddr :: ICi -> ICi
 lexAddr (ICi ops links b vars thisref) =
-  ICi  (map (\x -> lexAddr' x [vars] [thisref]) ops) (withAll lexAddr links) b vars thisref
-  where lexAddr' :: ICop -> [[Cdata]] -> [[Cdata]] -> ICop
+--  ICi  (map (\x -> lexAddr' x [vars] [thisref]) ops) (withAll lexAddr links) b vars thisref
+  ICi (lexAddr'' ops [vars] [thisref]) (withAll lexAddr links) b vars thisref
+  where lexAddr'' :: [ICop] -> [[Cdata]] -> [[Cdata]] -> [ICop]
+        lexAddr'' ((x@(DefVar x' _)):xs) vars thisrefs =
+          let thisrefs' = removeref x' thisrefs 
+          in (lexAddr' x vars thisrefs'):(lexAddr'' xs vars thisrefs')
+          where removeref x (thisref:_) = [filter (\y -> y /= x) thisref]
+        lexAddr'' (x:xs) vars thisrefs =
+          (lexAddr' x vars thisrefs):(lexAddr'' xs vars thisrefs)
+        lexAddr'' [] _ _ = []
+
+        lexAddr' :: ICop -> [[Cdata]] -> [[Cdata]] -> ICop
         lexAddr' ((org@(SetVar x r))) frames frames' =
           maybeIF
           (searchFrames frames x)
-          org
           (\(a,b) ->
             maybeIF
             (searchFrames frames' x)
-            (SetVar1 (CInt a) (CInt b) r)
-            (\_ -> SetVar2 (CInt a) (CInt b) r))
+            (\_ ->SetVar2 (CInt a) (CInt b) r)
+            (SetVar1 (CInt a) (CInt b) r))
+          org
           
         lexAddr' ((org@(LookVar r x))) frames frames' =
           maybeIF
           (searchFrames frames x)
-          org
           (\(a,b) ->
             maybeIF
             (searchFrames frames' x)
-            (GetVar1 (CInt a) (CInt b) r)
-            (\_ -> GetVar2 (CInt a) (CInt b) r))
-
+            (\_ -> GetVar2 (CInt a) (CInt b) r)
+            (GetVar1 (CInt a) (CInt b) r))
+          org
 
         lexAddr' ((org@(VarCatch r x y))) frames frames'=
           maybeIF
           (searchFrames frames x)
-          org
           (\(a,b) ->
             maybeIF
             (searchFrames frames' x)
-            (VarCatch1 r (CInt a) (CInt b) x y)
-            (\_ -> VarCatch2 r (CInt a) (CInt b) x y))
-
+            (\_ ->VarCatch2 r (CInt a) (CInt b) x y)
+            (VarCatch1 r (CInt a) (CInt b) x y))
+          org
         lexAddr' ((org@(DefVar x r))) frames _ =
           case searchFrames frames x of Nothing -> ((org))
                                         (Just (a,b)) -> ((SetVar1 (CInt a) (CInt b) r))
 
         lexAddr' (op) _ _= op
-        maybeIF :: (Maybe a) -> b -> (a -> b) -> b
-        maybeIF (Just x) _ f = f x
-        maybeIF (Nothing) na _ = na
+        maybeIF :: (Maybe a) -> (a -> b) -> b -> b
+        maybeIF (Just x) f _ = f x
+        maybeIF (Nothing)_ na = na
         searchFrames :: [[Cdata]] -> Cdata -> Maybe (Int,Int)
         searchFrames frames x =
-          let k = (foldl' sF (0,0) frames) 
-          in if k == ((length frames) + 1, 0)
-             then Nothing
-             else Just k
-          where sF :: (Int,Int) -> [Cdata] -> (Int,Int)
-                sF (a,0) frame = (a + 1, find' frame x)
-                sF (a,b) _ = (a,b)
-                find' ::(Eq a) => [a] -> a -> Int
-                find' (x:as) y = if x == y
-                                 then 0
-                                 else 1 + (find' as y)
-                find' [] _ = 0
- 
+          let list' = map (find' (==x)) frames
+          in case
+            find'
+            (\x -> case x of Just _ -> True
+                             Nothing -> False)
+            list' of Nothing ->
+                       Nothing
+                     (Just a) ->
+                       case list'!! a of (Just b) ->
+                                           Just (a,b)
+          where find' :: (a -> Bool) -> [a] -> Maybe Int
+                find' t list =
+                  (\x -> case x of [] -> Nothing
+                                   ((h,_):y) -> Just h) .
+                  filter (\(_,x) -> t x) .
+                  zip [0..] $ list 
 -----------------------
 --VarName transform--
 
@@ -306,10 +327,13 @@ delDup x = case delDup'' $ Els x [CExItem "main"] of Els ret _ -> ret
              
 regOptim :: ICi -> ICi
 regOptim all =
-  case cleanAllrs all of (ICi a l _ b c) -> ICi a l (getAllrs $ all) b c 
+--  case cleanAllrs all of (ICi a l _ b c) -> ICi a l (nub $ getAllrs $ all) b c 
+  case cleanAllrs all of (ICi a l _ b c) -> ICi a l allrs b c
   where getAllrs :: ICi -> [Register]
         getAllrs = getAllrs' . CLambda
           where getAllrs' (CLambda (ICi a l r b c)) = r ++ (concat $ map (getAllrs' . snd) l)
                 getAllrs' x = []
         cleanAllrs :: ICi -> ICi
         cleanAllrs (ICi a l _ b c) = ICi a (withAll cleanAllrs l) [] b c
+        allrs :: [Register]
+        allrs = [Exp,Val,Ret,Argl,Env]

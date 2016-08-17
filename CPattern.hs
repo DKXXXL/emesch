@@ -3,7 +3,7 @@ import Data.List (concat, foldl')
 
 
 addheader :: String -> String -> String
-addheader header = (("#include \"" ++ header ++ "\"\r") ++)
+addheader header = (("\r#include \"" ++ header ++ "\"\r") ++)
 
 
 addcall :: String -> [String] -> String
@@ -48,7 +48,7 @@ ifsentence pred branch1 branch2 =
 
 funcName = ("__FUNC__" ++)
 instName = ("__INSTA__" ++)
-struName = ("__STRUCT__" ++)
+struName = ("struct __STRUCT__" ++)
 
 declfunc :: String -> String -> [String] -> String
 declfunc funcname funcbody closurevar =
@@ -57,7 +57,7 @@ declfunc funcname funcbody closurevar =
   where func' =
           constsentence .
           staticsentence .
-          ptlongtype $ assignmentsentence "func" $ funcName funcname
+          (pointertype ptlongtype) $ assignmentsentence "func" $ funcName funcname
         closure' =
           strucvars closurevar
 declcfunc :: String -> String -> String
@@ -74,7 +74,7 @@ declarray name i =sentence $ staticsentence $ ptlongtype $ name ++ "[" ++ (show 
 
 declstruc :: String -> String -> String
 declstruc name content =
-  sentence $ "struct " ++ (nameStruct name) ++ "{" ++ content ++ "}" ++ (nameInstance name)
+  sentence $ (nameStruct name) ++ "{" ++ content ++ "}" ++ (nameInstance name)
   where nameStruct = struName
         nameInstance = instName
 
@@ -88,5 +88,14 @@ constarray (val:vals) = "[" ++ (foldl' (\x y -> x ++ "," ++ y) val vals) ++ "]"
 
 strucvars :: [String] -> String
 strucvars (var:vars) =
-  foldl' (\x y -> x ++ (sentence . ptlongtype $ y)) (sentence.ptlongtype $ var) vars
+  foldl' (\x y -> x ++ (sentence . (ptlongtype) $ y))
+  (sentence.(ptlongtype) $ var) vars
 strucvars [] = sentence ""
+
+
+registerregister :: [String] -> String
+registerregister (reg:regs) =
+  assignmentsentence
+  (constsentence $ staticsentence $ "__target__registers")
+  $ cube $ foldl' (\x y ->  x ++ (',':y)) reg regs
+  

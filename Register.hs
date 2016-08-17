@@ -1,6 +1,16 @@
-module Register (internalFunc ,Register(..), ICop(..), ICi(..), Cdata(..), nameGenerator') where
+module Register (
+  internalFunc,
+  envfuncalias,
+  Register(..),
+  ICop(..),
+  ICi(..),
+  Cdata(..),
+  nameGenerator') where
+
+import Data.Char (toUpper)
 
 type Address = Int
+
 
 data Cdata =
   CInt Int
@@ -10,7 +20,8 @@ data Cdata =
 --  | CList [Cdata]
   | CAtom String
   | CLambda ICi  -- Ops, Register and variable in use
-  | CExItem String
+  | CExItem String -- name of CLambda
+  | CExtern String -- a 'thing' extern declared out of the program
   deriving Eq
 
 instance (Show Cdata) where
@@ -21,7 +32,7 @@ instance (Show Cdata) where
   show (CExItem a) = a
   show (CLambda a) = show a
   show (CAtom a) = a
-
+  show (CExtern a) = a
 --data ICi =
 --  ICi {ops :: [ICop], using :: [Register], var :: [Cdata]}
 
@@ -86,4 +97,13 @@ nameGenerator' :: ICi -> String
 nameGenerator'  = show
 
 internalFunc :: [String]
-internalFunc = ["cons","car","cdr","quote","+","-","*","/","begin"] 
+internalFunc = ["cons","car","cdr","quote","+","-","*","/"] 
+
+envfuncalias "+" = "ADD"
+envfuncalias "-" = "MINUS"
+envfuncalias "*" = "MUTIPLY"
+envfuncalias "/" = "DEVIDE"
+envfuncalias x = map toUpper x
+
+
+--basicOp = map (CAtom.
