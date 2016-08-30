@@ -13,6 +13,8 @@ JUST FOR FUN
 
 AND FOR THE LAST QUESTION IN SICP.
 
+For the record of SICP & Write you a Scheme in 48 hours
+
 ##Usage:
 
 Use GHC(8.0.1) to compile Emeschc.hs.
