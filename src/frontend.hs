@@ -10,20 +10,21 @@ data Exp =
     | STrue
     | SFalse
     | SVar Symbol
-    | SZeropSL Exp
+    | SZerop Exp
     | SCond Exp Exp Exp 
     | SFun Symbol Exp 
     | SApp Exp Exp
     | SLet Symbol Exp Exp 
-    | SLetRec Symbol Exp Exp 
+    | SLetRec [Symbol] [Symbol] [Exp] Exp 
     | SPair Exp Exp 
     | SCar Exp 
     | SCdr Exp
     | SQuote String
+    | SString String
     | SAdd Exp Exp 
     | SMult Exp Exp 
     | SNeg Exp 
-    | SInv Exp Exp 
+    | SInv Exp
     | SBegin [Exp]
     | SSys Numeral Exp 
 
