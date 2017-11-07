@@ -22,7 +22,6 @@ data MachL =
     SetEnvReg Offset Register
     | SetEnvEnv Offset Offset
     | SetRegEnv Register Offset
-    | SetEnvLabel Offset Integer
     | SetRegLabel Register Integer
     | SetRegLiteral Register Literal
     | LABEL Integer
