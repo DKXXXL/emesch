@@ -66,3 +66,8 @@ toCDecl code =
     ((foldl1 (\x y -> x ++ "," ++ y) . 
     map (("reg" ++). show) [0 .. (regNum code)]))
     
+main :: String
+main = "int main(){LABEL0();return 0;}"
+
+genToC :: [MachL] -> String
+genToC x = (toCDecl x) ++ (toCCode x)  ++ main
