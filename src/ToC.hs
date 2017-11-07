@@ -32,7 +32,7 @@ toC (ApplyInner x) =
     show x ++ "();"
     
 toC (SaveCtxToEnv offset) =
-    printf "SAVCTX(ENV(%d), env);" offset
+    printf "SAVCTX(*(ENV(%d)), env);" offset
 
 toC (SaveCtxToReg r) =
     printf "SAVECTX(reg%d, env);" r
@@ -60,14 +60,13 @@ regNum = maximum . map reNum'
 
 toCDecl :: [MachL] -> String
 toCDecl code = 
-    "#include \"emeschlib.h\""
-    "VAR env;" ++
+    "#include \"emeschlib.h\"" ++
     printf "VAR %s;" 
     ((foldl1 (\x y -> x ++ "," ++ y) . 
     map (("reg" ++). show) [0 .. (regNum code)]))
     
 main :: String
-main = "int main(){LABEL0();return 0;}"
+main = "int main(){ENTRY();return 0;}"
 
 genToC :: [MachL] -> String
 genToC x = (toCDecl x) ++ (toCCode x)  ++ main
