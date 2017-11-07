@@ -19,21 +19,21 @@ data Literal =
     | LString String
 
 data MachL =
-    SetEnvReg Integer Register
-    | SetEnvEnv Integer Integer
-    | SetRegEnv Register Integer
-    | SetEnvLabel Integer Integer
+    SetEnvReg Offset Register
+    | SetEnvEnv Offset Offset
+    | SetRegEnv Register Offset
+    | SetEnvLabel Offset Integer
     | SetRegLabel Register Integer
     | SetRegLiteral Register Literal
     | LABEL Integer
     | Apply
     | ApplyInner InnerOperator
-    | SaveCtxToEnv Integer
-    | SaveCtxToReg Integer
-    | StoreCtxFromEnv Integer
-    | StoreCtxFromReg Integer
+    | SaveCtxToEnv Offset 
+    -- The variable at 'offset' is a closure
+    | SaveCtxToReg Register 
+    -- The value at 'register' is a closure, so that savectx is meaningful
     | AddEnv Integer
-    | IfEnvLabel Integer Integer Integer
+    | IfEnvLabel Offset Integer Integer
 
 type LABELNO = Integer
 
@@ -171,11 +171,16 @@ backend n (TLet i a body) =
     ([AddEnv,
     SetEnvEnv 0 i] ++ bodycompiled, n')
 
-integers :: [Integer]
-integers = 1 : (map (+ 1) integers)
-
 backend n (TLetRec fs ls body) =
-    let (running, funs, n') = mapValueToRegister n ls integers
-    in 
+    let numofrf = length fs
+    in let (running, funs, n') = mapValueToRegister n (reverse ls) [1..numofrf]
+    in let (bodycompiled, n'') = backend n' body
+    in  (running ++
+        [AddEnv numofrf] ++
+        map (\(x, y)-> SetEnvReg x y) (zip [0 .. ] [1 .. numofrf]) ++
+        map (\(x, y)-> SaveCtxToReg) [1 .. numofrf] ++        
+        bodycompiled ++
+        funs,
+        n'')
 
-
+        
