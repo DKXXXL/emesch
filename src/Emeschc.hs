@@ -1,4 +1,4 @@
-module Emeschc where
+module Main where
     import Frontend
     import IRep
     import Compiler

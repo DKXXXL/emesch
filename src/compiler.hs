@@ -168,6 +168,7 @@ nameelia :: Env -> Atom -> Atom
 nameelia env (UFun i body) = UFun i (nameelit (i : env) body)
 nameelia env (UFunC i j body) = UFunC i j (nameelit (j : i : env) body)
 nameelia env (UVar i) = NLVar (find env i)
+nameelia _ x = x
 
 nameelit :: Env -> TailForm -> TailForm
 nameelit env (TCond x y z) = 
