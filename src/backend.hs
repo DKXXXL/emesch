@@ -1,40 +1,6 @@
-data InnerOperator =
-    ADD 
-    | MULT
-    | INV
-    | NEG
-    | CAR
-    | CDR
-    | PAIR
-    | ZEROP
-    | SYS
+module Backend where
+import IRep
 
-type Register = Integer
-
-data Literal = 
-    LNumber Numeral
-    | LTrue
-    | LFalse
-    | LQuote String  
-    | LString String
-
-data MachL =
-    SetEnvReg Offset Register
-    | SetEnvEnv Offset Offset
-    | SetRegEnv Register Offset
-    | SetRegLabel Register Integer
-    | SetRegLiteral Register Literal
-    | LABEL Integer
-    | Apply
-    | ApplyInner InnerOperator
-    | SaveCtxToEnv Offset 
-    -- The variable at 'offset' is a closure
-    | SaveCtxToReg Register 
-    -- The value at 'register' is a closure, so that savectx is meaningful
-    | AddEnv Integer
-    | IfEnvLabel Offset Integer Integer
-
-type LABELNO = Integer
 
 s = (+ 1)
 
@@ -42,7 +8,7 @@ mapValueToRegister :: LABELNO -> [Atom] -> [Register] -> ([MachL], [MachL], LABE
 mapValueToRegister n (a:as) (r: rs) =
     let (running, funs, n') = initValueToRegister n a r
     in let (afrunning, affuns, n'') = mapValueToRegister n' as rs
-    in (running + afrunning, funs + affuns, n'')
+    in (running ++ afrunning, funs ++ affuns, n'')
 mapValueToRegister n [] _ =
     ([], [], n)
 
@@ -55,9 +21,9 @@ initValueToRegister n ATrue r =
 initValueToRegister n AFalse r =
     ([SetRegLiteral r LFalse], [], n)
 initValueToRegister n (AQuote s) r =
-    ([SetRegLiteral r (LQuote s))], [], n)
+    ([SetRegLiteral r (LQuote s)], [], n)
 initValueToRegister n (AString s) r =
-    ([SetRegLiteral r (LString s))], [], n)
+    ([SetRegLiteral r (LString s)], [], n)
 
 initValueToRegister n (NLVar i) r =
     ([SetRegEnv r i], [], n)
@@ -86,80 +52,83 @@ initValueToRegister n (UFunC i j body) r =
         n'
         )
 
-backend :: LABELNO -> Tailform -> ([MachL], LABELNO)
+toMachL_ :: TailForm -> [MachL]
+toMachL_ t = let (ret, _) = backend 2 t in ret
+
+backend :: LABELNO -> TailForm -> ([MachL], LABELNO)
 backend n (TCond ATrue b1 b2) = backend n b1 
 backend n (TCond AFalse b1 b2) = backend n b2
 backend n (TCond (NLVar i) b1 b2) =
     let (l1, n') = backend (s n) b1
     in let (l2, n'') = backend (s n') b2 
-    in [IfEnvLabel i n n'] ++
+    in ([IfEnvLabel i n n'] ++
         [LABEL n] ++ l1 ++ 
-        [LABEL n'] ++ l2
+        [LABEL n'] ++ l2, n'')
         
 
 
 backend n (TApp a1 a2) =
-    let (running, funs, n') = mapValueToRegister [a1, a2] [0, 1] n
+    let (running, funs, n') = mapValueToRegister n [a1, a2] [0, 1] 
     in (running ++
         [Apply] ++
         funs, n') 
 
 backend n (TAppc a1 a2 a3) =
-    let (running, funs, n') = mapValueToRegister [a1, a2, a3] [0, 1, 2] n
+    let (running, funs, n') = mapValueToRegister n [a1, a2, a3] [0, 1, 2] 
     in (running ++
         [Apply] ++
         funs, n') 
 
 backend n (EAdd a1 a2 a3) =
-    let (running, funs, n') = mapValueToRegister [a1, a2, a3] [1, 2, 3] n
+    let (running, funs, n') = mapValueToRegister n [a1, a2, a3] [1, 2, 3]
     in (running ++
         [ApplyInner ADD] ++
         funs, n') 
     
 backend n (EMult a1 a2 a3) =
-    let (running, funs, n') = mapValueToRegister [a1, a2, a3] [1, 2, 3] n
+    let (running, funs, n') = mapValueToRegister n [a1, a2, a3] [1, 2, 3]
     in (running ++
     [ApplyInner MULT] ++
      funs, n') 
 
 backend n (ENeg a1 a2) =
-    let (running, funs, n') = mapValueToRegister [a1, a2] [1, 2] n
+    let (running, funs, n') = mapValueToRegister n [a1, a2] [1, 2]
     in (running ++
         [ApplyInner NEG] ++
         funs, n') 
 
 backend n (EInv a1 a2) =
-    let (running, funs, n') = mapValueToRegister [a1, a2] [1, 2] n
+    let (running, funs, n') = mapValueToRegister n [a1, a2] [1, 2] 
     in (running ++
         [ApplyInner INV] ++
         funs, n') 
 
 backend n (EPair a1 a2 a3) =
-    let (running, funs, n') = mapValueToRegister [a1, a2, a3] [1, 2, 3] n
+    let (running, funs, n') = mapValueToRegister n [a1, a2, a3] [1, 2, 3]
     in (running ++
         [ApplyInner PAIR] ++
         funs, n') 
 
 backend n (ECar a1 a2) =
-    let (running, funs, n') = mapValueToRegister [a1, a2] [1, 2] n
+    let (running, funs, n') = mapValueToRegister n [a1, a2] [1, 2]
     in (running ++
         [ApplyInner CAR] ++
         funs, n') 
 
 backend n (ECdr a1 a2) =
-    let (running, funs, n') = mapValueToRegister [a1, a2] [1, 2] n
+    let (running, funs, n') = mapValueToRegister n [a1, a2] [1, 2]
     in (running ++
         [ApplyInner CDR] ++
         funs, n') 
 
 backend n (EZerop a1 a2) =
-    let (running, funs, n') = mapValueToRegister [a1, a2] [1, 2] n
+    let (running, funs, n') = mapValueToRegister n [a1, a2] [1, 2]
     in (running ++
         [ApplyInner ZEROP] ++
         funs, n')
         
 backend n (ESys a1 a2 a3) =
-    let (running, funs, n') = mapValueToRegister [(AConst a1), a2, a3] [1, 2, 3] n
+    let (running, funs, n') = mapValueToRegister n [(AConst a1), a2, a3] [1, 2, 3]
     in (running ++
         [ApplyInner ZEROP] ++
         funs, n')
@@ -167,19 +136,19 @@ backend n (ESys a1 a2 a3) =
 backend n (TLet i a body) =
     let (bodycompiled, n') = backend n body
     in 
-    ([AddEnv,
-    SetEnvEnv 0 i] ++ bodycompiled, n')
+    ([AddEnv 1,
+    SetEnvEnv 0 i] ++ 
+    bodycompiled, n')
 
 backend n (TLetRec fs ls body) =
-    let numofrf = length fs
+    let numofrf = toInteger . length $ fs
     in let (running, funs, n') = mapValueToRegister n (reverse ls) [1..numofrf]
     in let (bodycompiled, n'') = backend n' body
-    in  (running ++
+    in  ((running ++
         [AddEnv numofrf] ++
-        map (\(x, y)-> SetEnvReg x y) (zip [0 .. ] [1 .. numofrf]) ++
-        map (\(x, y)-> SaveCtxToReg) [1 .. numofrf] ++        
+        (map (\(x, y)-> SetEnvReg x y) (zip [0 .. ] [1 .. numofrf])) ++
+        (map (\x -> SaveCtxToReg x) [1 .. numofrf]) ++        
         bodycompiled ++
-        funs,
-        n'')
+        funs), n'')
 
         

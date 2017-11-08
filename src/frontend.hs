@@ -1,9 +1,8 @@
-module FrontEnd where
+module Frontend(Symbol, Numeral, Exp(..)) where
 
 --- AST
-
-type Symbol = Int
-type Numeral = Int
+type Symbol = Integer
+type Numeral = Integer
 
 data Exp =
     SConst Numeral

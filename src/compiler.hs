@@ -1,42 +1,10 @@
+module Compiler where
 import Data.Maybe
-
-newtype NS = NS Symbol
-type Offset = Integer
-
-data Atom =
-    AVar Symbol
-    | AVarn Symbol
-    | AConst Numeral
-    | ATrue
-    | AFalse
-    | AQuote String
-    | AString String
-    | AFun NS TailForm
-    | AFunC Symbol NS TailForm
-     --- Uni Name Space
-    | UFun Symbol TailForm
-    | UFunC Symbol Symbol TailForm
-    | UVar Symbol
-     --- Nameless Variable
-    | NLVar Offset
+import IRep
+import Frontend
 
 
-data TailForm =
---    | TAtom Atom
-     TCond Atom TailForm TailForm
-    | TApp Atom Atom
-    | TAppc Atom Atom Atom
-    | EAdd Atom Atom Atom
-    | EMult Atom Atom Atom
-    | ENeg Atom Atom
-    | EInv Atom Atom
-    | EPair Atom Atom Atom
-    | ECar Atom Atom
-    | ECdr Atom Atom
-    | EZerop Atom Atom
-    | ESys Numeral Atom Atom
-    | TLet Symbol Atom TailForm
-    | TLetRec [Symbol] [Atom] TailForm
+
 
 
 type Assign = Integer
@@ -54,87 +22,96 @@ atomize _ = Nothing
 
 
 cps :: Assign -> Exp -> Atom -> (TailForm, Assign)
-cps n (SConst n) K =
-    (TApp K (AConst n), n)
-cps n STrue K =
-    (TApp K ATrue, n)
-cps n SFalse K =
-    (TApp K AFalse, n)
+cps n (SConst x) kont =
+    (TApp kont (AConst x), n)
+cps n STrue kont =
+    (TApp kont ATrue, n)
+cps n SFalse kont =
+    (TApp kont AFalse, n)
 
-cps n (SVar i) K = 
-    (TApp K (AVar i), n)
-cps n (SZerop e) K =
-    cps (s n) e (AFun (NS n) (EZerop (AVarn n) K))
+cps n (SVar i) kont = 
+    (TApp kont (AVar i), n)
+cps n (SZerop e) kont =
+    cps (s n) e (AFun (NS n) (EZerop (AVarn n) kont))
 
-cps n (SCond j b1 b2) K = 
-   let (b1', n') = cps n b1 K
-    in let (b2' , n'' ) = cps n' b2 K
+cps n (SCond j b1 b2) kont = 
+   let (b1', n') = cps n b1 kont
+    in let (b2' , n'' ) = cps n' b2 kont
     in cps (s n'') j (AFun (NS n'') (TCond (AVarn n'') b1' b2'))
 
-cps n (SFun i body) K =
+cps n (SFun i body) kont =
     let (body', n') = cps (s n) body (AVarn n)
-    in (TApp K (AFunC i (NS n) body'), n')
+    in (TApp kont (AFunC i (NS n) body'), n')
 
-cps n (SApp f x) K =
+cps n (SApp f x) kont =
     let (ir, n') = (cps (s (s n)) x 
                         (AFun (NS (s n)) 
-                            (TAppc (AVarn n) (AVarn (s n)) K))))
+                            (TAppc (AVarn n) (AVarn (s n)) kont)))
     in cps n' f (AFun (NS n) ir)
-cps n (SLet x bind body) K =
-    let (ir, n') = cps (s n) body K
+cps n (SLet x bind body) kont =
+    let (ir, n') = cps (s n) body kont
     in cps n' bind (AFun (NS n) (TLet x (AVarn n) ir))
 
-cps n (SLetRec fs xs bodies body) K =
+cps n (SLetRec fs xs bodies body) kont =
     let lams = map (\(id', body') -> SFun id' body') (zip xs bodies)
         -- lams are all the functions declared in letrec
     in let (funs, n') = cpsalllam n lams
-    in TLetRec fs funs (cps n' body K)
+    in let (body', n'') = (cps n' body kont)
+    in (TLetRec fs funs body', n'')
     where cpsalllam :: Assign -> [Exp] -> ([Atom], Assign)
-          cpsalllam n lam:lams' = 
+          cpsalllam n (lam:lams') = 
                 let (TApp _ ft, n') = cps n lam ATrue
-                in  let (fs, n'') = cpsalllam n' lams
+                in  let (fs, n'') = cpsalllam n' lams'
                 in (ft : fs, n'')
           cpsalllam n [] = ([], n)
         
 
-cps n (SPair e1 e2) K =
-    let (e2', n') = cps (s (s n)) e2 (AFun (NS (s n)) (EPair (AVarn n) (AVarn (s n)) K))
+cps n (SPair e1 e2) kont =
+    let (e2', n') = cps (s (s n)) e2 (AFun (NS (s n)) (EPair (AVarn n) (AVarn (s n)) kont))
     in cps n' e1 (AFun (NS n) e2')
 
-cps n (SCar e) K =
-    cps (s n) e (AFun (NS n) (ECar (AVarn n) K))
+cps n (SCar e) kont =
+    cps (s n) e (AFun (NS n) (ECar (AVarn n) kont))
 
-cps n (SCdr e) K =
-    cps (s n) e (AFun (NS n) (ECdr (AVarn n) K))
+cps n (SCdr e) kont =
+    cps (s n) e (AFun (NS n) (ECdr (AVarn n) kont))
 
-cps n (SQuote s) K = 
-    (TApp K (AQuote s), n)
-cps n (SString s) K = 
-    (TApp K (AString s), n)
+cps n (SQuote s) kont = 
+    (TApp kont (AQuote s), n)
+cps n (SString s) kont = 
+    (TApp kont (AString s), n)
 
-cps n (SAdd e1 e2) K =
-    let (ir, n') = cps (s (s n)) e2 (AFun (NS (s n)) (EAdd (AVarn n) (AVarn (s n) K)))
+cps n (SAdd e1 e2) kont =
+    let (ir, n') = cps (s (s n)) e2 (AFun (NS (s n)) (EAdd (AVarn n) (AVarn (s n)) kont))
     in cps n' e1 (AFun (NS n) ir)
 
-cps n (SMult e1 e2) K =
-    let (ir, n') = cps (s (s n)) e2 (AFun (NS (s n)) (EMult (AVarn n) (AVarn (s n) K)))
+cps n (SMult e1 e2) kont =
+    let (ir, n') = cps (s (s n)) e2 (AFun (NS (s n)) (EMult (AVarn n) (AVarn (s n)) kont))
     in cps n' e1 (AFun (NS n) ir)
 
-cps n (SNeg e) K =
-    cps (s n) e (AFun (NS n) (ENeg (AVarn n) K))
+cps n (SNeg e) kont =
+    cps (s n) e (AFun (NS n) (ENeg (AVarn n) kont))
 
-cps n (SInv e) K =
-    cps (s n) e (AFun (NS n) (EInv (AVarn n) K))
+cps n (SInv e) kont =
+    cps (s n) e (AFun (NS n) (EInv (AVarn n) kont))
     
-cps n (SBegin (x : [])) K =
-    cps n x K
+cps n (SBegin (x : [])) kont =
+    cps n x kont
 
-cps n (SBegin (x : y)) K =
-    let (ir, n') = cps (s n) (SBegin y) K
+cps n (SBegin (x : y)) kont =
+    let (ir, n') = cps (s n) (SBegin y) kont
     in cps n' x (AFun (NS n) ir)
 
-cps n (SSys no e) =
-    cps (s n) e (AFun (NS n) (ESys no (AVarn n) K))
+cps n (SSys no e) kont =
+    cps (s n) e (AFun (NS n) (ESys no (AVarn n) kont))
+
+
+
+cpsOf_ :: Exp -> TailForm
+cpsOf_ e = let (ret, _) = cps 2 e (AFun (NS 1) (ESys (-1) (AVarn 1) (AConst 0))) in ret
+
+unifyVariableName_ :: TailForm -> TailForm
+unifyVariableName_ t = uniVarspace t 1
 
 uniVarspace :: TailForm -> Assign -> TailForm
 uniVarspace (TCond a1 b1 b2) n = 
@@ -184,6 +161,9 @@ find (v: ctx) target = if (v == target)
                         else 1 + (find ctx target)
 find [] target =  error "Wrong: Free Variable Found."
 
+nameElimination_ :: TailForm -> TailForm
+nameElimination_ = nameelit []
+
 nameelia :: Env -> Atom -> Atom 
 nameelia env (UFun i body) = UFun i (nameelit (i : env) body)
 nameelia env (UFunC i j body) = UFunC i j (nameelit (j : i : env) body)
@@ -193,9 +173,9 @@ nameelit :: Env -> TailForm -> TailForm
 nameelit env (TCond x y z) = 
     TCond (nameelia env x) (nameelit env y) (nameelit env z)
 nameelit env (TApp x y) =
-    TApp (nameelia env x) (nameelia y)
+    TApp (nameelia env x) (nameelia env y)
 nameelit env (TAppc x y z) = 
-    TAppc (nameelia env x) (nameelia env y) (nameelia z)
+    TAppc (nameelia env x) (nameelia env y) (nameelia env z)
 nameelit env (EAdd x y z) =
     EAdd (nameelia env x) (nameelia env y) (nameelia env z)
 nameelit env (EMult x y z) =
@@ -212,8 +192,8 @@ nameelit env (ECdr x y) =
     ECdr (nameelia env x) (nameelia env y) 
 nameelit env (EZerop x y) =
     EZerop (nameelia env x) (nameelia env y) 
-nameelit env (ESys x y) =
-    ESys x (nameelia env y) 
+nameelit env (ESys x y z) =
+    ESys x (nameelia env y) z
 nameelit env (TLet i bind body) =
     TLet i (nameelia env bind) (nameelit (i: env) body)
 nameelit env (TLetRec js fs body) =
