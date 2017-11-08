@@ -1,6 +1,7 @@
 typedef void (*LABELPT)();
 typedef void (*Marker)(void*);
-typedef void (*Gothrougher)(Marker);
+typedef int (*Marked)(void*);
+typedef void (*Gothrougher)(Marker, Marked);
 
 typedef struct {
     int size;
@@ -8,6 +9,7 @@ typedef struct {
 } Mempool;
 
 enum MemState{idle = 0, inUse = 1, markedIdle = 2, markedUse = 3};
+
 
 #define INUSE(mnodep) ((mnodep)->st == inUse)
 #define INIDLE(mnodep) ((mnodep)->st == idle)
@@ -29,6 +31,10 @@ typedef struct {
 } GCHandler;
 
 
-GCHandler GCInit(Mempool memory, Gothrougher gothrough);
+GCHandler GCInit(Mempool memUse, Mempool memIdle, Gothrougher gothrough);
 
 void* GCAlloc(GCHandler* handle, int size);
+
+void* memAlloc(GCHandler* handle, int ty, int size) {
+    return GCAlloc(handle, size);
+}

@@ -22,7 +22,7 @@ void* GCAlloc(GCHandler* handle, int size){
     MemNode* ret = _GCAlloc(handle->first, size);
     if(ret == NULL) {
         // start gc
-        GC(handle);
+        markAndSweep(handle);
         ret = _GCAlloc(handle->first, size);
         if(ret == NULL) {
             exit(-1);
@@ -61,8 +61,25 @@ void marker(void* mem) {
     node->st = markedUse;
 }
 
-void GC(GCHandler* handler) {
-    handler->gothrough(marker);
+int marked(void* mem) {
+    char* pt = mem;
+    MemNode* node = (MemNode*)(pt - sizeof(MemNode));
+    return (node->st == markedUse);
+}
+
+void markAndSweep(GCHandler* handler) {
+    MemNode* pt = handler->first;
+    while(pt != NULL) {
+        if(MARKED(pt)) {
+            pt->st = inUse;
+        } else if (INUSE(pt)) {
+            pt -> st = idle;
+        }
+    }
+}
+
+void copyGC(GCHandler* handler) {
+    handler->gothrough(marker, marked);
     MemNode* pt = handler->first;
     MemNode* newfirst;
     MemNode* newlast;
@@ -83,11 +100,36 @@ void GC(GCHandler* handler) {
     handler->usesize = handler ->idlesize;
     handler->idlesize = interchangesize;
 
-    
-    
+    void* interchangemem = handler -> mempoolIdle;
+    handler -> mempoolIdle = handler -> mempoolInUse;
+    handler -> mempoolInUse = interchangemem;
+
+    MemNode* first = handler -> mempoolInUse;
+    first -> st = idle;
+    first -> next = NULL;
+    first -> size = handler -> usesize - sizeof(MemNode);
+
+    copyAllObjects(newfirst, first);
+
+    handler -> first = first;
 
 }
 
-void copyAll(MemNode* oldarea, MemNode* newarea) {
+void memcpy(char* from, char* to, int size) {
+    int i = 0;
+    while(i < size) {
+        *to = *from;
+        to ++; from ++;
+    }
+}
 
+void copyAllObjects(MemNode* oldarea, MemNode* newarea) {
+    MemNode* pt = oldarea;
+    while(pt != NULL) {
+        MemNode* newregion = _GCAlloc(newarea, pt->size);
+        char* copyfrom = ((char*)pt) + sizeof(MemNode);
+        char* copyto = ((char*)newregion) + sizeof(MemNode);
+        memcpy(copyfrom, copyto, pt->size);
+        pt = pt -> next;
+    }
 }
