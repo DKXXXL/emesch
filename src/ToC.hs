@@ -1,9 +1,9 @@
 import Text.Printf
 
 toCLiteral :: Literal -> String
-toCLiteral (LNumber n) = show n 
-toCLiteral (LTrue) = "1"
-toCLiteral (LFalse) = "SNUM(0)"
+toCLiteral (LNumber n) = printf "SNUMBER(%s)" show n 
+toCLiteral (LTrue) = "SBOOL(1)"
+toCLiteral (LFalse) = "SBOOL(0)"
 toCLiteral (LQuote s) = printf "SQUOTE(\"%s\")" s 
 toCLiteral (LString s) = printf "SSTRING(\"%s\")" s
 
@@ -41,7 +41,7 @@ toC (AddEnv s) =
     printf "ADDENV(%d);" s
 
 toC (IfEnvLabel e l1 l2) =
-    printf "COND(*(ENV(%d))){GOTOLABEL(LABEL%d);}else{GOTOLABEL(LABEL%D);};" e l1 l2
+    printf "COND(*(ENV(%d)),GOTOLABEL(LABEL%d);,GOTOLABEL(LABEL%d););" e l1 l2
 
 toCCode :: [MachL] -> String
 toCCode =   (++ "}"). 

@@ -113,6 +113,8 @@ void copyGC(GCHandler* handler) {
 
     handler -> first = first;
 
+    //Reconnection of the  pointer pointing
+
 }
 
 void memcpy(char* from, char* to, int size) {

@@ -1,13 +1,18 @@
 #include "gc.h"
 
+typedef union {
+    void* pt;
+    double dat;
+} Data;
+
 typedef struct {
     enum obtype ty;
-    int** ct;
+    Data ct;
 } VAR;
 
 VAR env;
 
-enum obtype{_closure, _pair, _envNode, _literal};
+enum obtype{_closure, _pair, _envNode, _lNum, _lBool, _lQuote, _lString};
 
 static GCHandler GCINFO;
 
@@ -37,9 +42,9 @@ typedef struct {
 
 VAR* ENV(int step) {
     int i = 0;
-    envNode* pt = (envNode*) (env.ct);
+    envNode* pt = (envNode*) (env.ct.pt);
     while (i < step) {
-        pt = pt -> prev.ct;
+        pt = pt -> prev.ct.pt;
         i ++;
     }
     return &(pt->ct);
@@ -50,7 +55,7 @@ void ADDENV(int number) {
     while (i < number) {
         envNode* newenvNode = alloc(_envNode, sizeof(envNode));
         newenvNode ->prev = env;
-        (env.ct) = newenvNode;
+        (env.ct.pt) = newenvNode;
         env.ty = _envNode;
         i ++;
     }
@@ -63,15 +68,15 @@ VAR CLOSURE(LABELPT f) {
     closure* cls = alloc(_closure, sizeof(closure));
     cls->func = f;
     cls->ctx = env;
-    ret.ct = cls;
+    ret.ct.pt = cls;
     return ret;
 }
 
 
 
-#define GETCTX(r) (((closure*)((r).ct))->ctx)
-#define GOTOLABEL(r) (((LABELPT)((r).ct))())
-#define SAVECTX(r, e) (((closure*)(((r).ct)))->ctx = e) 
+#define GETCTX(r) (((closure*)((r).ct.pt))->ctx)
+#define GOTOLABEL(r) (((LABELPT)((r).ct.pt))())
+#define SAVECTX(r, e) (((closure*)(((r).ct.pt)))->ctx = e) 
 
 void LABEL0();
 
@@ -86,3 +91,11 @@ void CDR();
 void PAIR();
 void ZEROP();
 void SYS();
+
+#define SNUM(i) (VAR){_lNum, {.dat = (i)}}
+#define SBOOL(i) (VAR){_lBool, {.dat = (i)}}
+#define SQuote(i) (VAR){_lQuote, {.pt = (i)}}
+#define SString(i) (VAR){_lString, {.pt = (i)}}
+
+#define COND(i,j,k) if((i).ct){j}else{k}
+
