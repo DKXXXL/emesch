@@ -74,7 +74,7 @@ isin x (y:z) = (x == y) || (isin x z)
 isin x [] = False
 
 intOps = binOps ++ [ SAtom "/", SAtom "-",SAtom "lambda", 
-    SAtom "quote", SAtom "cons", SAtom "if", 
+    SAtom "quote", SAtom "cons", SAtom "if", SAtom "neg", SAtom "inv",
       SAtom "begin", SAtom "zerop", SAtom "let", 
       SAtom "letrec", SAtom "car", SAtom "cdr"]
 

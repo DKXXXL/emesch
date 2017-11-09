@@ -60,7 +60,7 @@ cps n (SLetRec fs xs bodies body) kont =
     in (TLetRec fs funs body', n'')
     where cpsalllam :: Assign -> [Exp] -> ([Atom], Assign)
           cpsalllam n (lam:lams') = 
-                let (TApp _ ft, n') = cps n lam ATrue
+                let (TApp ATrue ft, n') = cps n lam ATrue
                 in  let (fs, n'') = cpsalllam n' lams'
                 in (ft : fs, n'')
           cpsalllam n [] = ([], n)
@@ -159,7 +159,7 @@ find :: Env -> Symbol -> Offset
 find (v: ctx) target = if (v == target) 
                         then 0
                         else 1 + (find ctx target)
-find [] target =  error "Wrong: Free Variable Found."
+find [] target =  error  "Wrong: Free Variable Found." 
 
 nameElimination_ :: TailForm -> TailForm
 nameElimination_ = nameelit []

@@ -26,6 +26,7 @@ data Exp =
     | SInv Exp
     | SBegin [Exp]
     | SSys Numeral Exp 
+    deriving Show
 
 
 
