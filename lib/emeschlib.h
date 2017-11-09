@@ -46,7 +46,7 @@ typedef struct {
 
 
 #define GETCTX(r) (((closure*)((r).ct.pt))->ctx)
-#define GOTOLABEL(r) (((LABELPT)((r).ct.pt))())
+#define GOTOLABEL(r) (((LABELPT)((((closure*)((r).ct.pt))->func)))())
 #define SAVECTX(r, e) (((closure*)(((r).ct.pt)))->ctx = e) 
 
 void LABEL0();

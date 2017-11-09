@@ -130,7 +130,7 @@ backend n (EZerop a1 a2) =
 backend n (ESys a1 a2 a3) =
     let (running, funs, n') = mapValueToRegister n [(AConst a1), a2, a3] [1, 2, 3]
     in (running ++
-        [ApplyInner ZEROP] ++
+        [ApplyInner SYS] ++
         funs, n')
 
 backend n (TLet i a body) =

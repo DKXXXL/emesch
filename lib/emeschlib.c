@@ -180,3 +180,6 @@ VAR CLOSURE(LABELPT f) {
     ret.ct.pt = cls;
     return ret;
 }
+
+static envNode firstEnv = {.ct = (VAR) {.ty = _envNode, .ct.pt = NULL}, .prev = (VAR) {.ty = _envNode, .ct.pt = NULL}};
+VAR env = (VAR){.ty = _envNode, .ct.pt = &firstEnv};
