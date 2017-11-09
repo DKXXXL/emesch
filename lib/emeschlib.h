@@ -47,6 +47,7 @@ typedef struct {
 
 #define GETCTX(r) (((closure*)((r).ct.pt))->ctx)
 #define GOTOLABEL(r) (((LABELPT)((((closure*)((r).ct.pt))->func)))())
+#define JUMPLABEL(l) ((l)())
 #define SAVECTX(r, e) (((closure*)(((r).ct.pt)))->ctx = e) 
 
 void LABEL0();
@@ -68,7 +69,7 @@ void SYS();
 #define SQuote(i) (VAR){_lQuote, {.pt = (i)}}
 #define SString(i) (VAR){_lString, {.pt = (i)}}
 
-#define COND(i,j,k) if((i).ct){j}else{k}
+#define COND(i,j,k) if((i).ct.dat){j}else{k}
 
 VAR* ENV(int step);
 void ADDENV(int number);

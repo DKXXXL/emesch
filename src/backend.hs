@@ -137,7 +137,7 @@ backend n (TLet i a body) =
     let (bodycompiled, n') = backend n body
     in 
     ([AddEnv 1,
-    SetEnvEnv 0 i] ++ 
+    SetEnvEnv 0 (i + 1)] ++ 
     bodycompiled, n')
 
 backend n (TLetRec fs ls body) =

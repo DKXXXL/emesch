@@ -107,11 +107,11 @@ cps n (SSys no e) kont =
 
 
 
-cpsOf_ :: Exp -> TailForm
-cpsOf_ e = let (ret, _) = cps 2 e (AFun (NS 1) (ESys (-1) (AVarn 1) (AConst 0))) in ret
+cpsOf_ :: Exp -> (TailForm, Assign)
+cpsOf_ e = cps 2 e (AFun (NS 1) (ESys (-1) (AVarn 1) (AConst 0)))
 
-unifyVariableName_ :: TailForm -> TailForm
-unifyVariableName_ t = uniVarspace t 1
+unifyVariableName_ :: (TailForm, Assign) -> TailForm
+unifyVariableName_ (t,n) = uniVarspace t n
 
 uniVarspace :: TailForm -> Assign -> TailForm
 uniVarspace (TCond a1 b1 b2) n = 
@@ -139,7 +139,7 @@ uniVarspace (EZerop a1 a2) n =
 uniVarspace (ESys k a1 a2) n =
     ESys k (unirename a1 n) (unirename a2 n)
 uniVarspace (TLet i bind body) n =
-    TLet i (unirename bind n) (uniVarspace body n)
+    TLet (i + n) (unirename bind n) (uniVarspace body n)
 uniVarspace (TLetRec fs binds body) n =
     let fs' = map (+ n) fs
         binds' = map (\x -> unirename x n) binds 
@@ -151,6 +151,7 @@ unirename (AVar i) n = UVar (i + n)
 unirename (AVarn i) n = UVar i
 unirename (AFun (NS i) body) n = UFun i (uniVarspace body n)
 unirename (AFunC i (NS j) body) n = UFunC (i + n) j (uniVarspace body n)
+
 unirename other _ = other
 
 type Env = [Integer]
@@ -196,7 +197,7 @@ nameelit env (EZerop x y) =
 nameelit env (ESys x y z) =
     ESys x (nameelia env y) z
 nameelit env (TLet i bind body) =
-    TLet i (nameelia env bind) (nameelit (i: env) body)
+    TLet 0 (nameelia env bind) (nameelit (i: env) body)
 nameelit env (TLetRec js fs body) =
     let newenv = (reverse js) ++ env 
     in let fs' = map (nameelia newenv) fs 

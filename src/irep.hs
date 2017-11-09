@@ -20,6 +20,7 @@ data Atom =
     | UVar Symbol
      --- Nameless Variable
     | NLVar Offset
+    deriving Show
 
 
 data TailForm =
@@ -38,6 +39,7 @@ data TailForm =
     | ESys Numeral Atom Atom
     | TLet Symbol Atom TailForm
     | TLetRec [Symbol] [Atom] TailForm
+    deriving Show
 
 
 data InnerOperator =
@@ -60,6 +62,8 @@ data Literal =
         | LFalse
         | LQuote String  
         | LString String
+        deriving Show
+
     
 data MachL =
         SetEnvReg Offset Register
@@ -76,8 +80,9 @@ data MachL =
         -- The value at 'register' is a closure, so that savectx is meaningful
         | AddEnv Integer
         | IfEnvLabel Offset Integer Integer
+        deriving Show
     
 type LABELNO = Integer
-newtype NS = NS Symbol
+newtype NS = NS Symbol deriving Show
 type Offset = Integer
 

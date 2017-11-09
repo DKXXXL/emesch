@@ -43,7 +43,7 @@ module ToC where
         printf "ADDENV(%d);" s
 
     toC (IfEnvLabel e l1 l2) =
-        printf "COND(*(ENV(%d)),GOTOLABEL(LABEL%d);,GOTOLABEL(LABEL%d););" e l1 l2
+        printf "COND(*(ENV(%d)),JUMPLABEL(LABEL%d);,JUMPLABEL(LABEL%d););" e l1 l2
 
     toCCode :: [MachL] -> String
     toCCode =   (++ "}"). 

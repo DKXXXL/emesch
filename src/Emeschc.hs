@@ -23,4 +23,6 @@ module Main where
         input <- hGetContents stdin 
         let output =  compile input
         hPutStr stdout output
+
+    test = toMachL_ . nameElimination_ . unifyVariableName_ . cpsOf_ . stringtoAst $ "(let (i (lambda (x y) (+ x y))) (i 1 2))"
         
