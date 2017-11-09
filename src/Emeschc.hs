@@ -9,6 +9,8 @@ module Main where
     import Backend
     import ToC
 
+    import System.IO (stdin, stdout, hPutStr, hGetContents)
+
     stringtoAst :: String -> Exp 
     stringtoAst = toAst . macroTransformer . P.parser
 
@@ -17,4 +19,8 @@ module Main where
 
     compile = compile_fromAST . stringtoAst
 
-    main = print (compile "(+ 1 1 1)")
+    main = do
+        input <- hGetContents stdin 
+        let output =  compile input
+        hPutStr stdout output
+        
