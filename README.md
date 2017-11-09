@@ -1,5 +1,5 @@
 # Emeschc
-(A toy) (subset of)Scheme Compiler target to C written in Haskell.
+(A toy) (subset of) Scheme Compiler target to C written in Haskell.
 
 Thanks to *Essentials of Programming Languages*
 
