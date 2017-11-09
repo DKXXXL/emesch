@@ -1,6 +1,10 @@
 #include "gc.h"
+#include <stdlib.h>
 
-#define NULL ((void*)0)
+
+MemNode* _GCAlloc(MemNode* pt, int size);
+void markAndSweep(GCHandler* handler);
+void copyAllObjects(MemNode* oldarea, MemNode* newarea);
 
 GCHandler GCInit(Mempool memUse, Mempool memIdle, Gothrougher gothrough)
 {
@@ -117,7 +121,7 @@ void copyGC(GCHandler* handler) {
 
 }
 
-void memcpy(char* from, char* to, int size) {
+void mcpy(char* from, char* to, int size) {
     int i = 0;
     while(i < size) {
         *to = *from;
@@ -131,7 +135,7 @@ void copyAllObjects(MemNode* oldarea, MemNode* newarea) {
         MemNode* newregion = _GCAlloc(newarea, pt->size);
         char* copyfrom = ((char*)pt) + sizeof(MemNode);
         char* copyto = ((char*)newregion) + sizeof(MemNode);
-        memcpy(copyfrom, copyto, pt->size);
+        mcpy(copyfrom, copyto, pt->size);
         pt = pt -> next;
     }
 }

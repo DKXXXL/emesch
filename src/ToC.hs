@@ -11,19 +11,19 @@ module ToC where
 
     toC :: MachL -> String
     toC (SetEnvReg a b) =
-        printf "*(ENV(%d)) = reg%d;" a b
+        printf "*(ENV(%d)) = reg[%d];" a b
 
     toC (SetEnvEnv a b) =
         printf "*(ENV(%d)) = *(ENV(%d));" a b
 
     toC (SetRegEnv a b) =
-        printf "reg%d = *(ENV(%d));" a b
+        printf "reg[%d] = *(ENV(%d));" a b
 
     toC (SetRegLabel a b) = 
-        printf "reg%d = CLOSURE(LABEL%d);" a b
+        printf "reg[%d] = CLOSURE(LABEL%d);" a b
 
     toC (SetRegLiteral a b) =
-        printf "reg%d = %s;" a (toCLiteral b)
+        printf "reg[%d] = %s;" a (toCLiteral b)
 
     toC (LABEL x) =
         printf "}void LABEL%d(){" x 
@@ -37,7 +37,7 @@ module ToC where
         printf "SAVCTX(*(ENV(%d)), env);" offset
 
     toC (SaveCtxToReg r) =
-        printf "SAVECTX(reg%d, env);" r
+        printf "SAVECTX(reg[%d], env);" r
 
     toC (AddEnv s) =
         printf "ADDENV(%d);" s
@@ -47,7 +47,7 @@ module ToC where
 
     toCCode :: [MachL] -> String
     toCCode =   (++ "}"). 
-                foldl (\x y -> x ++ y) "void LABEL0{" . 
+                foldl (\x y -> x ++ "\n" ++ y) "void LABEL0(){" . 
                 (map toC)
 
     regNum :: [MachL] -> Integer
@@ -60,10 +60,20 @@ module ToC where
                   regNum' (SaveCtxToReg x) = x
                   regNum' _ = -1
 
+
+    labelNum :: [MachL] -> Integer
+    labelNum = maximum . map labelNum'
+        where labelNum' :: MachL -> Integer
+              labelNum' (LABEL i) = i
+              labelNum' _ = -1
+        
     toCDecl :: [MachL] -> String
     toCDecl code = 
-        "#include \"emeschlib.h\"" ++
-        printf "VAR reg[%d];"  ((regNum code) + 1)
+        let rn = (regNum code)
+        in "#include \"emeschlib.h\" \n" ++
+            (printf "static const int REGNUM = %d; \n"  (rn + 1)) ++
+            (printf "VAR reg[%d];"  (rn + 1)) ++
+            (foldl1 (\x y -> x ++ y) $ map (\x -> printf "void LABEL%d();" x) [0..(labelNum code)])
         
     mainC :: String
     mainC = "int main(){ENTRY();return 0;}"

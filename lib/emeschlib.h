@@ -1,5 +1,7 @@
 #include "gc.h"
 
+enum obtype{_closure, _pair, _envNode, _lNum, _lBool, _lQuote, _lString};
+
 typedef union {
     void* pt;
     double dat;
@@ -12,7 +14,6 @@ typedef struct {
 
 VAR env;
 
-enum obtype{_closure, _pair, _envNode, _lNum, _lBool, _lQuote, _lString};
 
 static GCHandler GCINFO;
 
@@ -20,7 +21,7 @@ static GCHandler GCINFO;
 
 #define MEMPOOLSIZE 1024000
 
-#define APPLY() env = GETCTX(reg0);GOTOLABEL(reg0);
+#define APPLY() env = GETCTX(reg[0]);GOTOLABEL(reg[0]);
 
 typedef struct
 {
@@ -40,37 +41,7 @@ typedef struct {
     VAR snd;
 } pair;
 
-VAR* ENV(int step) {
-    int i = 0;
-    envNode* pt = (envNode*) (env.ct.pt);
-    while (i < step) {
-        pt = pt -> prev.ct.pt;
-        i ++;
-    }
-    return &(pt->ct);
-}
 
-void ADDENV(int number) {
-    int i = 0;
-    while (i < number) {
-        envNode* newenvNode = alloc(_envNode, sizeof(envNode));
-        newenvNode ->prev = env;
-        (env.ct.pt) = newenvNode;
-        env.ty = _envNode;
-        i ++;
-    }
-}
-
-VAR CLOSURE(LABELPT f) {
-    VAR ret;
-
-    ret.ty = _closure;
-    closure* cls = alloc(_closure, sizeof(closure));
-    cls->func = f;
-    cls->ctx = env;
-    ret.ct.pt = cls;
-    return ret;
-}
 
 
 
@@ -92,10 +63,15 @@ void PAIR();
 void ZEROP();
 void SYS();
 
-#define SNUM(i) (VAR){_lNum, {.dat = (i)}}
-#define SBOOL(i) (VAR){_lBool, {.dat = (i)}}
+#define SNUMBER(i) (VAR){_lNum, {.dat = (double)(i)}}
+#define SBOOL(i) (VAR){_lBool, {.dat = (double)(i)}}
 #define SQuote(i) (VAR){_lQuote, {.pt = (i)}}
 #define SString(i) (VAR){_lString, {.pt = (i)}}
 
 #define COND(i,j,k) if((i).ct){j}else{k}
 
+VAR* ENV(int step);
+void ADDENV(int number);
+VAR CLOSURE(LABELPT f);
+
+static const int REGNUM;

@@ -17,7 +17,7 @@ enum MemState{idle = 0, inUse = 1, markedIdle = 2, markedUse = 3};
 
 typedef struct {
     enum MemState st;
-    MemNode* next;
+    void* next;
     int size;
 } MemNode;
 
@@ -35,6 +35,4 @@ GCHandler GCInit(Mempool memUse, Mempool memIdle, Gothrougher gothrough);
 
 void* GCAlloc(GCHandler* handle, int size);
 
-void* memAlloc(GCHandler* handle, int ty, int size) {
-    return GCAlloc(handle, size);
-}
+#define memAlloc(handle, ty, size) GCAlloc((handle), (size))
