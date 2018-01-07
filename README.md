@@ -1,4 +1,6 @@
 # Emeschc
+[![Build Status](https://travis-ci.org/DKXXXL/emesch.svg?branch=master)](https://travis-ci.org/DKXXXL/emesch)
+
 (A toy) (subset of) Scheme transplier to C written in Haskell.
 
 Thanks to *Essentials of Programming Languages*
