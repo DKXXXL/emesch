@@ -3,3 +3,5 @@ build/
 *.hi
 *.o
 Parsing.hs
+.stack-work/
+*.ll

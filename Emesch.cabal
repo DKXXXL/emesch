@@ -19,10 +19,8 @@ executable Emeschc
   default-language:    Haskell2010
   other-modules:
       AST
-      Frontend
       Backend
       Compiler
-      IRep
       Macro
       Parsing2
       ToC
