@@ -21,6 +21,8 @@ executable Emeschc
       AST
       Backend
       Compiler
+      Frontend
+      IRep
       Macro
       Parsing2
       ToC
